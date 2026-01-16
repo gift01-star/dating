@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: edulove-backend
+    runtime: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        fromQuery: JWT_SECRET
+      - key: MONGODB_URI
+        fromQuery: MONGODB_URI
+      - key: FRONTEND_URL
+        value: https://edulove-frontend.onrender.com
+      - key: PORT
+        value: 5000
+
+  - type: web
+    name: edulove-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://edulove-backend.onrender.com

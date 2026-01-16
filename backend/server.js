@@ -67,7 +67,8 @@ app.use((req, res, next) => {
   const allowedOrigins = [
     'https://ominous-potato-974jgw5wgg96h7xgj-3001.app.github.dev',
     'http://localhost:3000',
-    'http://localhost:3001'
+    'http://localhost:3001',
+    'https://edulove-frontend.onrender.com'
   ];
   
   if (allowedOrigins.includes(origin)) {
