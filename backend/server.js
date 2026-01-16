@@ -68,7 +68,8 @@ app.use((req, res, next) => {
     'https://ominous-potato-974jgw5wgg96h7xgj-3001.app.github.dev',
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://edulove-frontend.onrender.com'
+    'https://edulove-frontend.onrender.com',
+    'https://dating-zujg.onrender.com'
   ];
   
   if (allowedOrigins.includes(origin)) {
