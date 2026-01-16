@@ -16,11 +16,7 @@ services:
       - key: PORT
         value: 5000
 
-  - type: web
+  - type: static
     name: edulove-frontend
-    runtime: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/build
-    envVars:
-      - key: REACT_APP_API_URL
-        value: https://edulove-backend.onrender.com
+    buildCommand: cd frontend && npm install && REACT_APP_API_URL=https://dating-zujg.onrender.com npm run build
+    staticPublishPath: ./frontend/build
