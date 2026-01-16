@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../database.js';
+import { calculateMatchScore, getRecommendedMatches, getMatchDetails } from '../utils/matchingAlgorithm.js';
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ const verifyToken = (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     req.userId = decoded.id;
     next();
   } catch (error) {
@@ -32,23 +33,42 @@ router.get('/profile/:id', verifyToken, async (req, res) => {
 // Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { name, gender, university, course, year, interests, bio, profileImage } = req.body;
+    const { nickname, name, gender, dob, location, height, bodyType, university, course, year, interests, bio } = req.body;
 
-    const user = await User.updateOne(
-      { _id: req.userId },
-      {
-        name: name || undefined,
-        gender,
-        university,
-        course,
-        year,
-        interests,
-        bio,
-        profileImage,
-        updatedAt: new Date()
-      }
-    );
-    
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Update fields
+    if (nickname) user.nickname = nickname;
+    if (name) user.name = name;
+    if (gender) user.gender = gender;
+    if (dob) user.dob = new Date(dob);
+    if (location) user.location = location;
+    if (height) user.height = parseInt(height);
+    if (bodyType) user.bodyType = bodyType;
+    if (university) user.university = university;
+    if (course) user.course = course;
+    if (year) user.year = year;
+    if (interests) user.interests = interests;
+    if (bio) user.bio = bio;
+
+    user.updatedAt = new Date();
+
+    await User.updateOne({ _id: req.userId }, {
+      nickname: user.nickname,
+      name: user.name,
+      gender: user.gender,
+      dob: user.dob,
+      location: user.location,
+      height: user.height,
+      bodyType: user.bodyType,
+      university: user.university,
+      course: user.course,
+      year: user.year,
+      interests: user.interests,
+      bio: user.bio,
+      updatedAt: user.updatedAt
+    });
 
     res.json({ message: 'Profile updated', user: user.toJSON() });
   } catch (error) {
@@ -59,7 +79,7 @@ router.put('/profile', verifyToken, async (req, res) => {
 // Get users for matching (with filters)
 router.get('/discover', verifyToken, async (req, res) => {
   try {
-    const { gender, university, minAge, maxAge, page = 1 } = req.query;
+    const { gender, university, location, minAge, maxAge, minHeight, maxHeight, page = 1 } = req.query;
 
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ error: 'User not found' });
@@ -72,6 +92,9 @@ router.get('/discover', verifyToken, async (req, res) => {
       if (currentUser.blocked && currentUser.blocked.includes(u._id)) return false;
       if (gender && u.gender !== gender) return false;
       if (university && u.university !== university) return false;
+      if (location && u.location !== location) return false;
+      if (minHeight && u.height && u.height < parseInt(minHeight)) return false;
+      if (maxHeight && u.height && u.height > parseInt(maxHeight)) return false;
       return true;
     });
 
@@ -107,6 +130,61 @@ router.post('/block/:id', verifyToken, async (req, res) => {
     await User.updateOne({ _id: req.userId }, { blocked: user.blocked });
 
     res.json({ message: 'User blocked' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload photo
+router.post('/photos', verifyToken, async (req, res) => {
+  try {
+    const { photoUrl } = req.body;
+    
+    if (!photoUrl) {
+      return res.status(400).json({ error: 'Photo URL is required' });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!user.photos) user.photos = [];
+    
+    // Add new photo
+    user.photos.push({
+      url: photoUrl,
+      publicId: `photo_${user._id}_${Date.now()}`,
+      uploadedAt: new Date()
+    });
+
+    // Limit to 5 photos
+    if (user.photos.length > 5) {
+      user.photos = user.photos.slice(-5);
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Photo uploaded successfully',
+      photos: user.photos
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete photo
+router.delete('/photos/:photoId', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.photos = user.photos.filter(p => p._id.toString() !== req.params.photoId);
+    await user.save();
+
+    res.json({
+      message: 'Photo deleted successfully',
+      photos: user.photos
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

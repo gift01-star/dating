@@ -38,7 +38,9 @@ function LoginPage({ setIsAuthenticated, setUser }) {
     <div className="min-h-screen gradient-header flex items-center justify-center p-4">
       <div className="w-full max-w-md card">
         <div className="text-center mb-6">
-          <FaHeart className="text-4xl text-pink-500 mx-auto mb-2" />
+          <button onClick={() => navigate('/')} className="flex items-center justify-center space-x-2 mx-auto mb-2 hover:scale-105 transition">
+            <FaHeart className="text-4xl text-pink-500" />
+          </button>
           <h1 className="text-3xl font-bold text-gray-800">EduLove</h1>
           <p className="text-gray-600">Connect with students</p>
         </div>

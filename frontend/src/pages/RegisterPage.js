@@ -36,6 +36,7 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
     }
 
     try {
+      console.log('Attempting registration with API_URL:', API_URL);
       const response = await axios.post(`${API_URL}/auth/register`, {
         name: formData.name,
         email: formData.email,
@@ -43,12 +44,15 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
         confirmPassword: formData.confirmPassword
       });
 
+      console.log('Registration successful:', response.data);
       localStorage.setItem('token', response.data.token);
       setUser(response.data.user);
       setIsAuthenticated(true);
       navigate('/profile');
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      console.error('Registration error:', err);
+      console.error('Error details:', err.response?.data);
+      setError(err.response?.data?.error || err.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -58,7 +62,9 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
     <div className="min-h-screen gradient-header flex items-center justify-center p-4">
       <div className="w-full max-w-md card">
         <div className="text-center mb-6">
-          <FaHeart className="text-4xl text-pink-500 mx-auto mb-2" />
+          <button onClick={() => navigate('/')} className="flex items-center justify-center space-x-2 mx-auto mb-2 hover:scale-105 transition">
+            <FaHeart className="text-4xl text-pink-500" />
+          </button>
           <h1 className="text-3xl font-bold text-gray-800">Create Account</h1>
           <p className="text-gray-600">Join EduLove today</p>
         </div>
@@ -121,6 +127,13 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
               {error}
             </div>
           )}
+
+          <div className="text-xs text-gray-600 text-center">
+            By signing up, you agree to our{' '}
+            <Link to="/terms" className="text-pink-500 hover:text-pink-600 font-medium">
+              Terms and Conditions
+            </Link>
+          </div>
 
           <button
             type="submit"

@@ -23,6 +23,13 @@ const userSchema = new mongoose.Schema({
     enum: ['Male', 'Female', 'Other']
   },
   dob: Date,
+  age: Number,
+  location: String,
+  height: Number,
+  bodyType: {
+    type: String,
+    enum: ['Slim', 'Athletic', 'Average', 'Curvy']
+  },
   university: String,
   course: String,
   year: {
@@ -48,6 +55,7 @@ const userSchema = new mongoose.Schema({
     enum: ['email', 'studentId', 'manual'],
     default: null
   },
+  verificationDate: Date,
   studentIdUrl: String,
   studentIdPublicId: String,
   blocked: [mongoose.Schema.Types.ObjectId],
@@ -55,6 +63,15 @@ const userSchema = new mongoose.Schema({
   active: {
     type: Boolean,
     default: true
+  },
+  profileCompletion: {
+    type: Number,
+    default: 0
+  },
+  notificationPreferences: {
+    email: { type: Boolean, default: true },
+    matches: { type: Boolean, default: true },
+    messages: { type: Boolean, default: true }
   },
   createdAt: {
     type: Date,

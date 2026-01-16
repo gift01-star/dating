@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import axios from 'axios';
 
 // Pages
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DiscoverPage from './pages/DiscoverPage';
@@ -10,6 +11,9 @@ import MatchesPage from './pages/MatchesPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/AdminDashboard';
+import TermsPage from './pages/TermsPage';
+import LikesPage from './pages/LikesPage';
+import MessagesPage from './pages/MessagesPage';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -57,20 +61,24 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={!isAuthenticated ? <LandingPage /> : <Navigate to="/discover" />} />
         <Route path="/login" element={!isAuthenticated ? <LoginPage setIsAuthenticated={setIsAuthenticated} setUser={setUser} /> : <Navigate to="/discover" />} />
         <Route path="/register" element={!isAuthenticated ? <RegisterPage setIsAuthenticated={setIsAuthenticated} setUser={setUser} /> : <Navigate to="/discover" />} />
+        <Route path="/terms" element={<TermsPage />} />
         
         {isAuthenticated ? (
           <>
             <Route path="/discover" element={<DiscoverPage user={user} />} />
             <Route path="/matches" element={<MatchesPage user={user} />} />
+            <Route path="/likes" element={<LikesPage user={user} />} />
+            <Route path="/messages" element={<MessagesPage user={user} />} />
             <Route path="/chat/:matchId" element={<ChatPage user={user} />} />
             <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/discover" />} />
           </>
         ) : (
-          <Route path="*" element={<Navigate to="/login" />} />
+          <Route path="*" element={<Navigate to="/" />} />
         )}
       </Routes>
     </Router>

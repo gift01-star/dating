@@ -27,6 +27,17 @@ function ChatPage({ user }) {
       });
 
       setMessages(response.data);
+      
+      // Fetch match info to display user details
+      try {
+        const matchResponse = await axios.get(`${API_URL}/matches/${matchId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMatchInfo(matchResponse.data);
+      } catch (err) {
+        console.error('Error fetching match info:', err);
+      }
+      
       setLoading(false);
     } catch (err) {
       console.error('Error fetching messages:', err);
@@ -60,14 +71,38 @@ function ChatPage({ user }) {
     <div className="flex flex-col h-screen bg-gradient-to-br from-pink-50 to-orange-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4">
-        <div className="max-w-2xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => navigate('/matches')}
-            className="text-pink-500 hover:text-pink-600"
-          >
-            <FaArrowLeft size={24} />
-          </button>
-          <h1 className="text-xl font-bold text-gray-800">Chat</h1>
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/matches')}
+              className="text-pink-500 hover:text-pink-600"
+            >
+              <FaArrowLeft size={24} />
+            </button>
+            {matchInfo?.user && (
+              <div className="flex items-center gap-3">
+                {matchInfo.user.photos && matchInfo.user.photos.length > 0 ? (
+                  <img
+                    src={matchInfo.user.photos[0].url}
+                    alt={matchInfo.user.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-pink-300 flex items-center justify-center text-white font-bold">
+                    {(matchInfo.user.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-lg font-bold text-gray-800">
+                    {matchInfo.user.nickname || matchInfo.user.name}
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    {matchInfo.user.university || ''}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

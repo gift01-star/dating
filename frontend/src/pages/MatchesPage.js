@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaComments } from 'react-icons/fa';
+import BottomNavBar from '../components/BottomNavBar';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -34,7 +35,8 @@ function MatchesPage({ user }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 p-4">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 p-4 pb-24">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 mt-4">
@@ -109,7 +111,10 @@ function MatchesPage({ user }) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+
+      <BottomNavBar />
+    </>
   );
 }
 

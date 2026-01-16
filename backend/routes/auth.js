@@ -28,7 +28,7 @@ router.post('/register', async (req, res) => {
       password
     });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
       expiresIn: process.env.JWT_EXPIRE || '7d'
     });
 
@@ -63,7 +63,7 @@ router.post('/login', async (req, res) => {
 
     await User.updateOne({ email }, { lastActive: new Date() });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
       expiresIn: process.env.JWT_EXPIRE || '7d'
     });
 
@@ -85,7 +85,7 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     const user = await User.findById(decoded.id);
 
     if (!user) {
