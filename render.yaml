@@ -12,11 +12,15 @@ services:
       - key: MONGODB_URI
         fromQuery: MONGODB_URI
       - key: FRONTEND_URL
-        value: https://edulove-frontend.onrender.com
+        value: https://dating-zujg.onrender.com
       - key: PORT
         value: 5000
 
-  - type: static
+  - type: web
     name: edulove-frontend
-    buildCommand: cd frontend && npm install && REACT_APP_API_URL=https://dating-zujg.onrender.com npm run build
-    staticPublishPath: ./frontend/build
+    runtime: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm install -g serve && serve -s build -l 3000
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://dating-zujg.onrender.com
