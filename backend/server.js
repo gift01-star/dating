@@ -70,6 +70,7 @@ app.use((req, res, next) => {
     'http://localhost:3001',
     'https://edulove-frontend.onrender.com',
     'https://dating-zujg.onrender.com'
+    'https://frontend-i89x.onrender.com'
   ];
   
   if (allowedOrigins.includes(origin)) {
