@@ -22,7 +22,8 @@ export default function PaymentsPage({ user }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const sessionId = query.get('sessionId');
+    // Accept multiple potential query names for the returned session/payment id
+    const sessionId = query.get('sessionId') || query.get('session') || query.get('paymentId') || query.get('id');
     const matchId = query.get('matchId');
 
     if (sessionId) {

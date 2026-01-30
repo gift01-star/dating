@@ -76,6 +76,7 @@ function App() {
             <Route path="/chat/:matchId" element={<ChatPage user={user} />} />
             <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} />} />
             <Route path="/payments" element={<PaymentsPage user={user} />} />
+            <Route path="/payments/success" element={<PaymentsPage user={user} />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/discover" />} />
           </>

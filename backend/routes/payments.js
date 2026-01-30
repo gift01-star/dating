@@ -66,7 +66,7 @@ router.post('/create-session', authenticate, async (req, res) => {
             currency: plan.currency,
             reference: payment._id,
             metadata: { userId: req.user._id, planId: plan.id },
-            return_url: `${process.env.FRONTEND_URL}/payments/success?sessionId=${payment._id}`
+            return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
           })
         });
 
