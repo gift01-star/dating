@@ -66,7 +66,8 @@ router.post('/create-session', authenticate, async (req, res) => {
             currency: plan.currency,
             reference: payment._id,
             metadata: { userId: req.user._id, planId: plan.id },
-            return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
+            // Return to backend first to avoid SPA deep-link 404s; backend will redirect to frontend
+            return_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`
           })
         });
 
@@ -90,6 +91,30 @@ router.post('/create-session', authenticate, async (req, res) => {
     const checkoutUrl = `${process.env.FRONTEND_URL}/payments/success?sessionId=${payment._id}`;
 
     return res.json({ checkoutUrl, paymentId: payment._id });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Provider return endpoint: handle provider redirect here, then redirect to frontend
+router.get('/return', async (req, res) => {
+  try {
+    const { paymentId } = req.query;
+    if (!paymentId) return res.status(400).send('Missing paymentId');
+
+    const payment = await Payment.findById(paymentId);
+    if (!payment) return res.status(404).send('Payment not found');
+
+    // Optionally we could validate query params or provider tokens here
+    const frontendUrl = process.env.FRONTEND_URL || '/';
+    const redirectUrl = `${frontendUrl}/payments?sessionId=${payment._id}${payment.matchId ? `&matchId=${payment.matchId}` : ''}`;
+
+    return res.redirect(302, redirectUrl);
+  } catch (err) {
+    console.error('Return redirect error:', err.message || err);
+    return res.status(500).send('Error processing return');
+  }
+});
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
