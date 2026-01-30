@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import TermsPage from './pages/TermsPage';
 import LikesPage from './pages/LikesPage';
 import MessagesPage from './pages/MessagesPage';
+import PaymentsPage from './pages/PaymentsPage';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -74,6 +75,7 @@ function App() {
             <Route path="/messages" element={<MessagesPage user={user} />} />
             <Route path="/chat/:matchId" element={<ChatPage user={user} />} />
             <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} />} />
+            <Route path="/payments" element={<PaymentsPage user={user} />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/discover" />} />
           </>

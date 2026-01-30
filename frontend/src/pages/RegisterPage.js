@@ -52,7 +52,12 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
     } catch (err) {
       console.error('Registration error:', err);
       console.error('Error details:', err.response?.data);
-      setError(err.response?.data?.error || err.message || 'Registration failed');
+      if (err.message === 'Network Error') {
+        setError('Network Error — backend unreachable. Check that REACT_APP_API_URL is correct, your backend is running, and there are no CORS or mixed-content issues.');
+        console.error('Request info:', err.request);
+      } else {
+        setError(err.response?.data?.error || err.message || 'Registration failed');
+      }
     } finally {
       setLoading(false);
     }

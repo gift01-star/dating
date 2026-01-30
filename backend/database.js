@@ -5,7 +5,8 @@ let users = [];
 let matches = [];
 let messages = [];
 let reports = [];
-let idCounter = { user: 1, match: 1, message: 1, report: 1 };
+let payments = [];
+let idCounter = { user: 1, match: 1, message: 1, report: 1, payment: 1 };
 
 // Utility functions
 const hashPassword = async (password) => {
@@ -179,12 +180,44 @@ export const Report = {
   }
 };
 
+// Payment operations (simple in-memory)
+export const Payment = {
+  create: async (data) => {
+    const payment = {
+      _id: String(idCounter.payment++),
+      ...data,
+      status: data.status || 'pending',
+      createdAt: new Date(),
+      toJSON: function() { return this; }
+    };
+    payments.push(payment);
+    return payment;
+  },
+  find: async (query = {}) => {
+    return payments.filter(p => {
+      if (query.userId) return p.userId === query.userId;
+      if (query.status) return p.status === query.status;
+      return true;
+    });
+  },
+  findById: async (id) => {
+    return payments.find(p => p._id === id) || null;
+  },
+  updateOne: async (query, data) => {
+    const payment = payments.find(p => p._id === query._id);
+    if (!payment) throw new Error('Payment not found');
+    Object.assign(payment, data);
+    return payment;
+  }
+};
+
 // Clear database
 export const clearDatabase = () => {
   users = [];
   matches = [];
   messages = [];
   reports = [];
+  payments = [];
 };
 
 // Get stats
@@ -194,6 +227,9 @@ export const getStats = () => {
     verifiedUsers: users.filter(u => u.verified).length,
     totalMatches: matches.length,
     totalMessages: messages.length,
-    totalReports: reports.length
+    totalReports: reports.length,
+    totalPayments: payments.length
   };
 };
+
+

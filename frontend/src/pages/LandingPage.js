@@ -120,7 +120,7 @@ function LandingPage() {
               </p>
             </div>
 
-            {/* Feature 6 */}
+            {/* Feature 6 */};
             <div className="bg-gradient-to-br from-pink-50 to-rose-50 p-8 rounded-2xl hover:shadow-lg transition">
               <FaUsers className="text-4xl text-pink-500 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Community Driven</h3>

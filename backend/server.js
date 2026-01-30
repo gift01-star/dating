@@ -13,6 +13,7 @@ import matchRoutes from './routes/matches.js';
 import messageRoutes from './routes/messages.js';
 import reportRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
+import paymentRoutes from './routes/payments.js';
 
 // Import database
 import { User } from './database.js';
@@ -66,8 +67,14 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
     'https://ominous-potato-974jgw5wgg96h7xgj-3001.app.github.dev',
+    'https://ominous-potato-974jgw5wgg96h7xgj-3000.app.github.dev',
+    'https://ominous-potato-974jgw5wgg96h7xgj-5000.app.github.dev',
     'http://localhost:3000',
-    'https://frontend-i89x.onrender.com'
+    'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'https://frontend-i89x.onrender.com',
+    'https://edulove-frontend.onrender.com',
+    'https://dating-zujg.onrender.com'
   ];
   
   if (allowedOrigins.includes(origin)) {
@@ -120,6 +127,8 @@ app.get('/', (req, res) => {
 // Register
 app.post('/api/auth/register', async (req, res) => {
   try {
+    console.log('Incoming /api/auth/register request from', req.ip, 'origin:', req.headers.origin);
+    console.log('Request body keys:', Object.keys(req.body));
     const { name, email, password, confirmPassword } = req.body;
 
     if (!name || !email || !password) {
@@ -308,6 +317,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -322,7 +332,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: 'Something Went wrong' });
 });
 
 const PORT = process.env.PORT || 5000;

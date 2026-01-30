@@ -31,7 +31,22 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 FRONTEND_URL=https://your-frontend-domain.com
+# Paychangu (payment gateway)
+PAYCHANGU_API_KEY=your_paychangu_api_key_here
+PAYCHANGU_SECRET=your_paychangu_secret_here
+PAYCHANGU_WEBHOOK_SECRET=your_paychangu_webhook_secret_here
+PAYCHANGU_ENV=test
 ```
+
+### 1.4 Paychangu Webhook
+
+If you plan to enable payments, configure your Paychangu dashboard webhooks to point at:
+
+```
+https://your-backend.onrender.com/api/payments/webhook
+```
+
+Verify that `PAYCHANGU_WEBHOOK_SECRET` in your backend environment matches the webhook secret configured in Paychangu.
 
 ### 1.3 Deploy Backend to Render
 
