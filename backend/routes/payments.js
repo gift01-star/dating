@@ -108,6 +108,25 @@ router.get('/sessions/:id', authenticate, async (req, res) => {
   }
 });
 
+// Get latest pending payment for the authenticated user (optional: filter by matchId)
+router.get('/latest', authenticate, async (req, res) => {
+  try {
+    const { matchId } = req.query;
+    let payments = await Payment.find({ userId: req.user._id, status: 'pending' });
+
+    if (matchId) {
+      payments = payments.filter(p => p.matchId === matchId);
+    }
+
+    const latest = payments.length ? payments[payments.length - 1] : null;
+    if (!latest) return res.status(404).json({ error: 'No pending payment found' });
+
+    return res.json({ payment: latest });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint to complete a payment (test helper) - marks payment succeeded and unlocks messaging for the user
 router.post('/complete/:id', authenticate, async (req, res) => {
   try {

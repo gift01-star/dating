@@ -26,26 +26,64 @@ export default function PaymentsPage({ user }) {
     const sessionId = query.get('sessionId') || query.get('session') || query.get('paymentId') || query.get('id');
     const matchId = query.get('matchId');
 
-    if (sessionId) {
-      // poll session status
-      (async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const res = await axios.get(`${API_URL}/payments/sessions/${sessionId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const status = res.data.payment?.status;
-          setMessage(`Payment status: ${status}`);
+    const checkSession = async (id) => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/payments/sessions/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const status = res.data.payment?.status;
+        setMessage(`Payment status: ${status}`);
 
-          // If payment succeeded, navigate back to chat if matchId provided
-          if (status === 'succeeded' && matchId) {
-            navigate(`/chat/${matchId}`);
+        // If payment succeeded, navigate back to chat if matchId provided
+        if (status === 'succeeded' && matchId) {
+          navigate(`/chat/${matchId}`);
+        }
+
+        return res.data.payment;
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          // Try to fetch latest pending payment for the user (optionally filtered by matchId)
+          try {
+            const token = localStorage.getItem('token');
+            const searchRes = await axios.get(`${API_URL}/payments/latest${matchId ? `?matchId=${matchId}` : ''}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const payment = searchRes.data.payment;
+            if (payment) {
+              setMessage('Found pending payment for this session.');
+              return payment;
+            }
+          } catch (searchErr) {
+            setMessage('No pending payment found for this session.');
           }
-        } catch (err) {
+        } else {
           setMessage('Unable to fetch payment status.');
         }
-      })();
-    }
+      }
+
+      return null;
+    };
+
+    (async () => {
+      if (sessionId) {
+        await checkSession(sessionId);
+      } else if (matchId) {
+        // no explicit session id — try to find pending payment for matchId
+        try {
+          const token = localStorage.getItem('token');
+          const searchRes = await axios.get(`${API_URL}/payments/latest?matchId=${matchId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const payment = searchRes.data.payment;
+          if (payment) {
+            setMessage('Found pending payment for this match.');
+          }
+        } catch (err) {
+          // nothing found — user can start checkout manually
+        }
+      }
+    })();
   }, [query, navigate]);
 
   const startCheckout = async (planId) => {
@@ -73,10 +111,11 @@ export default function PaymentsPage({ user }) {
   };
 
   // Test-only: complete payment (marks payment succeeded and unlocks messaging)
-  const completeTestPayment = async () => {
-    const sessionId = query.get('sessionId');
+  const completeTestPayment = async (paymentId) => {
+    // accept optional paymentId; fall back to sessionId in query
+    const sessionId = paymentId || query.get('sessionId');
     const matchId = query.get('matchId');
-    if (!sessionId) return setMessage('No sessionId provided');
+    if (!sessionId) return setMessage('No session or payment id provided');
 
     try {
       setLoading(true);
@@ -98,17 +137,46 @@ export default function PaymentsPage({ user }) {
     }
   };
 
+  // Helper: find latest pending payment for current user (optionally pass matchId)
+  const findLatestPending = async () => {
+    const matchId = query.get('matchId');
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/payments/latest${matchId ? `?matchId=${matchId}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const payment = res.data.payment;
+      if (payment) {
+        setMessage('Found pending payment. You can complete it below (DEV).');
+        return payment;
+      }
+    } catch (err) {
+      setMessage(err.response?.data?.error || 'No pending payment found.');
+    } finally {
+      setLoading(false);
+    }
+
+    return null;
+  };
+
+
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">Payments & Subscriptions</h1>
       {message && <div className="p-3 mb-4 bg-green-100 text-green-800 rounded">{message}</div>}
 
       {/* When redirected back to payments with a sessionId, offer a test-complete button for local/testing flows */}
-      {query.get('sessionId') && (
-        <div className="mb-4">
-          <button onClick={completeTestPayment} disabled={loading} className="mr-2 bg-yellow-400 text-white py-2 px-3 rounded">{loading ? 'Processing...' : 'Complete test payment (DEV)'}</button>
-        </div>
-      )}
+      <div className="mb-4">
+        <button onClick={async () => {
+          const payment = await findLatestPending();
+          if (payment) completeTestPayment(payment._id);
+        }} disabled={loading} className="mr-2 bg-yellow-400 text-white py-2 px-3 rounded">{loading ? 'Processing...' : 'Find & complete pending payment (DEV)'}</button>
+
+        {query.get('sessionId') && (
+          <button onClick={() => completeTestPayment()} disabled={loading} className="ml-2 bg-yellow-400 text-white py-2 px-3 rounded">{loading ? 'Processing...' : 'Complete test payment (DEV)'}</button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Plans.map(plan => (
