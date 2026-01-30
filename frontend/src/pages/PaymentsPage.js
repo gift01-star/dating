@@ -25,6 +25,7 @@ export default function PaymentsPage({ user }) {
     // Accept multiple potential query names for the returned session/payment id
     const sessionId = query.get('sessionId') || query.get('session') || query.get('paymentId') || query.get('id');
     const matchId = query.get('matchId');
+    const plan = query.get('plan');
 
     const checkSession = async (id) => {
       try {
@@ -66,6 +67,19 @@ export default function PaymentsPage({ user }) {
     };
 
     (async () => {
+      // If a plan param is provided and no explicit session id, start checkout automatically (convenience for redirect links)
+      if (plan && !sessionId) {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setMessage('Please log in to complete a payment.');
+          return;
+        }
+
+        setMessage(`Starting checkout for ${plan}...`);
+        await startCheckout(plan);
+        return;
+      }
+
       if (sessionId) {
         await checkSession(sessionId);
       } else if (matchId) {
