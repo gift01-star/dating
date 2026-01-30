@@ -59,6 +59,17 @@ function ChatPage({ user }) {
       setMessage('');
       fetchMessages();
     } catch (err) {
+      // If payment required, redirect to checkout (or payments page)
+      if (err.response && err.response.status === 402) {
+        const checkoutUrl = err.response.data?.checkoutUrl;
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+          return;
+        }
+        navigate(`/payments?matchId=${matchId}`);
+        return;
+      }
+
       console.error('Error sending message:', err);
     }
   };

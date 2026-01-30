@@ -1,6 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { Message, Match } from '../database.js';
+import { Message, Match, User } from '../database.js';
 
 const router = express.Router();
 
@@ -30,6 +30,16 @@ router.post('/:matchId', verifyToken, async (req, res) => {
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
     const receiverId = match.user1 === req.userId ? match.user2 : match.user1;
+
+    // Check two-free-message limit per conversation
+    const user = await User.findById(req.userId);
+    const allMessagesForMatch = await Message.find({ matchId: req.params.matchId });
+    const sentByUserCount = allMessagesForMatch.filter(m => m.senderId === req.userId).length;
+
+    if (!user?.messagesUnlocked && sentByUserCount >= 2) {
+      const checkoutUrl = `${process.env.FRONTEND_URL}/payments?matchId=${req.params.matchId}&plan=basic`;
+      return res.status(402).json({ error: 'Message limit reached', paymentRequired: true, message: 'You have used your two free messages for this conversation. Please pay to continue.', checkoutUrl });
+    }
 
     const newMessage = await Message.create({
       matchId: req.params.matchId,

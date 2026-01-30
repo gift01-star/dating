@@ -44,6 +44,9 @@ export const User = {
       ...data,
       passwordHash: await hashPassword(data.password),
       verified: false,
+      // Messaging fields
+      messagesUnlocked: false,
+      freeMessagesRemaining: 2,
       createdAt: new Date(),
       lastActive: new Date(),
       blocked: [],

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -19,8 +19,12 @@ export default function PaymentsPage({ user }) {
   const [message, setMessage] = useState(null);
   const query = useQuery();
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     const sessionId = query.get('sessionId');
+    const matchId = query.get('matchId');
+
     if (sessionId) {
       // poll session status
       (async () => {
@@ -31,18 +35,25 @@ export default function PaymentsPage({ user }) {
           });
           const status = res.data.payment?.status;
           setMessage(`Payment status: ${status}`);
+
+          // If payment succeeded, navigate back to chat if matchId provided
+          if (status === 'succeeded' && matchId) {
+            navigate(`/chat/${matchId}`);
+          }
         } catch (err) {
           setMessage('Unable to fetch payment status.');
         }
       })();
     }
-  }, [query]);
+  }, [query, navigate]);
 
   const startCheckout = async (planId) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${API_URL}/payments/create-session`, { planId }, {
+      const matchId = query.get('matchId');
+
+      const res = await axios.post(`${API_URL}/payments/create-session`, { planId, matchId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -60,10 +71,43 @@ export default function PaymentsPage({ user }) {
     }
   };
 
+  // Test-only: complete payment (marks payment succeeded and unlocks messaging)
+  const completeTestPayment = async () => {
+    const sessionId = query.get('sessionId');
+    const matchId = query.get('matchId');
+    if (!sessionId) return setMessage('No sessionId provided');
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.post(`${API_URL}/payments/complete/${sessionId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setMessage(res.data?.message || 'Payment completed');
+
+      // Navigate back to chat if a matchId exists
+      if (matchId) {
+        navigate(`/chat/${matchId}`);
+      }
+    } catch (err) {
+      setMessage(err.response?.data?.error || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">Payments & Subscriptions</h1>
       {message && <div className="p-3 mb-4 bg-green-100 text-green-800 rounded">{message}</div>}
+
+      {/* When redirected back to payments with a sessionId, offer a test-complete button for local/testing flows */}
+      {query.get('sessionId') && (
+        <div className="mb-4">
+          <button onClick={completeTestPayment} disabled={loading} className="mr-2 bg-yellow-400 text-white py-2 px-3 rounded">{loading ? 'Processing...' : 'Complete test payment (DEV)'}</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Plans.map(plan => (

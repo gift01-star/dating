@@ -34,18 +34,19 @@ const authenticate = async (req, res, next) => {
 // Create a checkout session (test-mode placeholder)
 router.post('/create-session', authenticate, async (req, res) => {
   try {
-    const { planId } = req.body;
+    const { planId, matchId } = req.body;
     if (!planId || !PLANS[planId]) return res.status(400).json({ error: 'Invalid plan id' });
 
     const plan = PLANS[planId];
 
-    // Create a payment record with status pending
+    // Create a payment record with status pending (store optional matchId for context)
     const payment = await Payment.create({
       userId: req.user._id,
       planId: plan.id,
       amount: plan.amount,
       currency: plan.currency,
-      status: 'pending'
+      status: 'pending',
+      matchId: matchId || null
     });
 
     // Attempt to create a real Paychangu checkout session when keys are configured
@@ -107,6 +108,23 @@ router.get('/sessions/:id', authenticate, async (req, res) => {
   }
 });
 
+// Endpoint to complete a payment (test helper) - marks payment succeeded and unlocks messaging for the user
+router.post('/complete/:id', authenticate, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (payment.userId !== req.user._id) return res.status(403).json({ error: 'Forbidden' });
+
+    await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', updatedAt: new Date() });
+    await User.updateOne({ _id: req.user._id }, { messagesUnlocked: true });
+
+    return res.json({ message: 'Payment completed (test), messaging unlocked', payment });
+  } catch (error) {
+    console.error('Complete payment error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Webhook endpoint (called by Paychangu) - verify signature/header
 router.post('/webhook', express.json(), async (req, res) => {
   try {
@@ -145,6 +163,16 @@ router.post('/webhook', express.json(), async (req, res) => {
       const payment = await Payment.findById(paymentId);
       if (payment) {
         await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', externalId: event.data.externalId || event.data.id || null, updatedAt: new Date() });
+
+        // Unlock messaging for the user who made the payment
+        try {
+          const user = await User.findById(payment.userId);
+          if (user) {
+            await User.updateOne({ _id: user._id }, { messagesUnlocked: true });
+          }
+        } catch (err) {
+          console.error('Error unlocking messaging after payment:', err.message || err);
+        }
       }
     }
 
