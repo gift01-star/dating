@@ -47,6 +47,11 @@ export const User = {
       // Messaging fields
       messagesUnlocked: false,
       freeMessagesRemaining: 2,
+      unlockedMatches: [],
+      // Subscription
+      subscriptionActive: false,
+      subscriptionPlan: null,
+      subscriptionExpires: null,
       createdAt: new Date(),
       lastActive: new Date(),
       blocked: [],

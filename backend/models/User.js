@@ -76,6 +76,12 @@ const userSchema = new mongoose.Schema({
   // Messaging controls: 2 free messages per conversation; set to true after successful payment
   messagesUnlocked: { type: Boolean, default: false },
   freeMessagesRemaining: { type: Number, default: 2 },
+  // Per-conversation unlocks (matchId strings)
+  unlockedMatches: { type: [String], default: [] },
+  // Subscription info (for paid subscription plans)
+  subscriptionActive: { type: Boolean, default: false },
+  subscriptionPlan: { type: String, default: null },
+  subscriptionExpires: Date,
   createdAt: {
     type: Date,
     default: Date.now

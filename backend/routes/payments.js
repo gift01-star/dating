@@ -135,7 +135,27 @@ router.post('/complete/:id', authenticate, async (req, res) => {
     if (payment.userId !== req.user._id) return res.status(403).json({ error: 'Forbidden' });
 
     await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', updatedAt: new Date() });
-    await User.updateOne({ _id: req.user._id }, { messagesUnlocked: true });
+
+    // Unlock based on plan and matchId
+    try {
+      if (payment.planId === 'premium' || payment.planId === 'platinum') {
+        // Activate subscription for 30 days (example)
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await User.updateOne({ _id: req.user._id }, { subscriptionActive: true, subscriptionPlan: payment.planId, subscriptionExpires: expires });
+      }
+
+      // If this payment includes a matchId, unlock that conversation specifically
+      if (payment.matchId) {
+        const user = await User.findById(req.user._id);
+        const unlocked = new Set([...(user.unlockedMatches || []), payment.matchId]);
+        await User.updateOne({ _id: req.user._id }, { unlockedMatches: Array.from(unlocked) });
+      }
+
+      // As a fallback, also set messagesUnlocked for broad compatibility
+      await User.updateOne({ _id: req.user._id }, { messagesUnlocked: true });
+    } catch (err) {
+      console.error('Error applying post-payment unlocks:', err.message || err);
+    }
 
     return res.json({ message: 'Payment completed (test), messaging unlocked', payment });
   } catch (error) {
@@ -187,6 +207,19 @@ router.post('/webhook', express.json(), async (req, res) => {
         try {
           const user = await User.findById(payment.userId);
           if (user) {
+            // If plan is subscription-like, activate subscription
+            if (payment.planId === 'premium' || payment.planId === 'platinum') {
+              const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+              await User.updateOne({ _id: user._id }, { subscriptionActive: true, subscriptionPlan: payment.planId, subscriptionExpires: expires, messagesUnlocked: true });
+            }
+
+            // If payment had matchId, unlock that match specifically
+            if (payment.matchId) {
+              const unlocked = new Set([...(user.unlockedMatches || []), payment.matchId]);
+              await User.updateOne({ _id: user._id }, { unlockedMatches: Array.from(unlocked) });
+            }
+
+            // Fallback unlock
             await User.updateOne({ _id: user._id }, { messagesUnlocked: true });
           }
         } catch (err) {

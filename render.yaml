@@ -20,7 +20,7 @@ services:
     name: edulove-frontend
     runtime: node
     buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm install -g serve && serve -s build -l 3000
+    startCommand: cd frontend && npm install && npm run start:prod
     envVars:
       - key: REACT_APP_API_URL
         value: https://dating-zujg.onrender.com

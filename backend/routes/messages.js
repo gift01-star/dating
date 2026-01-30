@@ -36,13 +36,15 @@ router.post('/:matchId', verifyToken, async (req, res) => {
     const allMessagesForMatch = await Message.find({ matchId: req.params.matchId });
     const sentByUserCount = allMessagesForMatch.filter(m => m.senderId === req.userId).length;
 
-    if (!user?.messagesUnlocked && sentByUserCount >= 2) {
-      // Create a pending payment record (default to basic plan) and return a checkout URL so the frontend can redirect immediately
+    // Allow send if user has subscription, has unlocked this match, or is within the free 2 messages
+    const unlockedThisMatch = user?.unlockedMatches?.includes(req.params.matchId);
+    if (!(user?.subscriptionActive || user?.messagesUnlocked || unlockedThisMatch || sentByUserCount < 2)) {
+      // Create a pending payment record (default to premium subscription) and return a checkout URL so the frontend can redirect immediately
       try {
         const payment = await (await import('../database.js')).Payment.create({
           userId: req.userId,
-          planId: 'basic',
-          amount: 1999,
+          planId: 'premium',
+          amount: 4999,
           currency: 'USD',
           status: 'pending',
           matchId: req.params.matchId
@@ -53,14 +55,14 @@ router.post('/:matchId', verifyToken, async (req, res) => {
         return res.status(402).json({
           error: 'Message limit reached',
           paymentRequired: true,
-          message: 'You have used your two free messages for this conversation. Please pay to continue.',
+          message: 'You have used your two free messages for this conversation. Please subscribe to continue.',
           checkoutUrl,
           paymentId: payment._id
         });
       } catch (err) {
         console.error('Error creating pending payment for message limit:', err.message || err);
-        const checkoutUrl = `${process.env.FRONTEND_URL}/payments?matchId=${req.params.matchId}&plan=basic`;
-        return res.status(402).json({ error: 'Message limit reached', paymentRequired: true, message: 'You have used your two free messages for this conversation. Please pay to continue.', checkoutUrl });
+        const checkoutUrl = `${process.env.FRONTEND_URL}/payments?matchId=${req.params.matchId}&plan=premium`;
+        return res.status(402).json({ error: 'Message limit reached', paymentRequired: true, message: 'You have used your two free messages for this conversation. Please subscribe to continue.', checkoutUrl });
       }
     }
 
