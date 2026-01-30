@@ -115,10 +115,6 @@ router.get('/return', async (req, res) => {
     return res.status(500).send('Error processing return');
   }
 });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
 
 // Poll session/status endpoint
 router.get('/sessions/:id', authenticate, async (req, res) => {
