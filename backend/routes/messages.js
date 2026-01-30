@@ -37,8 +37,31 @@ router.post('/:matchId', verifyToken, async (req, res) => {
     const sentByUserCount = allMessagesForMatch.filter(m => m.senderId === req.userId).length;
 
     if (!user?.messagesUnlocked && sentByUserCount >= 2) {
-      const checkoutUrl = `${process.env.FRONTEND_URL}/payments?matchId=${req.params.matchId}&plan=basic`;
-      return res.status(402).json({ error: 'Message limit reached', paymentRequired: true, message: 'You have used your two free messages for this conversation. Please pay to continue.', checkoutUrl });
+      // Create a pending payment record (default to basic plan) and return a checkout URL so the frontend can redirect immediately
+      try {
+        const payment = await (await import('../database.js')).Payment.create({
+          userId: req.userId,
+          planId: 'basic',
+          amount: 1999,
+          currency: 'USD',
+          status: 'pending',
+          matchId: req.params.matchId
+        });
+
+        const checkoutUrl = `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}&matchId=${req.params.matchId}`;
+
+        return res.status(402).json({
+          error: 'Message limit reached',
+          paymentRequired: true,
+          message: 'You have used your two free messages for this conversation. Please pay to continue.',
+          checkoutUrl,
+          paymentId: payment._id
+        });
+      } catch (err) {
+        console.error('Error creating pending payment for message limit:', err.message || err);
+        const checkoutUrl = `${process.env.FRONTEND_URL}/payments?matchId=${req.params.matchId}&plan=basic`;
+        return res.status(402).json({ error: 'Message limit reached', paymentRequired: true, message: 'You have used your two free messages for this conversation. Please pay to continue.', checkoutUrl });
+      }
     }
 
     const newMessage = await Message.create({
