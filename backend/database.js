@@ -56,7 +56,7 @@ async function ensureTables() {
       dob TIMESTAMP,
       age INTEGER DEFAULT 0,
       profileimage TEXT DEFAULT '',
-      relationship_goal TEXT DEFAULT 'Dating'
+      relationshipGoal TEXT DEFAULT 'Dating'
     );
 
 
@@ -67,7 +67,7 @@ async function ensureTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "bodyType" TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS year TEXT ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profileimage TEXT DEFAULT '';
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS relationship_goal TEXT DEFAULT 'Dating';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS relationshipGoal TEXT DEFAULT 'Dating';
     ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
 
 
