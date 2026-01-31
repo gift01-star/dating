@@ -67,7 +67,7 @@ async function ensureTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "bodyType" TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS year TEXT ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profileimage TEXT DEFAULT '';
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS relationshipGoal TEXT DEFAULT 'Dating';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "relationshipGoal" TEXT DEFAULT 'Dating';
     ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
 
 
