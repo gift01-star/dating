@@ -48,6 +48,7 @@ async function ensureTables() {
       bio TEXT DEFAULT '',
       university TEXT DEFAULT '',
       course TEXT DEFAULT '',
+      location TEXT DEFAULT '',
       gender TEXT DEFAULT '',
       dob TIMESTAMP,
       age INTEGER DEFAULT 0,
@@ -55,8 +56,9 @@ async function ensureTables() {
       relationship_goal TEXT DEFAULT 'Dating'
     );
 
-    -- Ensure dob column exists on older schemas
+    -- Ensure dob and location columns exist on older schemas
     ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS location TEXT;
 
     CREATE TABLE IF NOT EXISTS matches (
       id TEXT PRIMARY KEY,
@@ -169,9 +171,9 @@ export const User = usePostgres ? {
     const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
     const passwordHash = await hashPassword(data.password || data.passwordHash || '');
     const photos = JSON.stringify(data.photos || []);
-    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, gender, age, profileimage, relationship_goal)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20)
-    `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
+    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, location, gender, dob, age, profileimage, relationship_goal)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+    `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.location || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
 
     const res = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
     return wrapRow(res.rows[0]);

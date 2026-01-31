@@ -11,6 +11,13 @@ function MatchesPage({ user }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Local blocked state to reflect unblock actions immediately
+  const [localBlocked, setLocalBlocked] = useState(user?.blocked || []);
+
+  useEffect(() => {
+    setLocalBlocked(user?.blocked || []);
+  }, [user]);
+
   useEffect(() => {
     fetchMatches();
     const interval = setInterval(fetchMatches, 5000); // refresh matches so new conversations/matches show up
@@ -101,13 +108,38 @@ function MatchesPage({ user }) {
                   <p className="text-gray-500 text-sm mb-4">{match.user.course}</p>
                 )}
 
-                {/* Message Button */}
-                <button
-                  onClick={() => navigate(`/chat/${match._id}`)}
-                  className="w-full btn-primary flex items-center justify-center gap-2"
-                >
-                  <FaComments /> Send Message
-                </button>
+                {/* Message / Unblock Button */}
+                {localBlocked && localBlocked.some(id => String(id) === String(match.user._id)) ? (
+                  <button
+                    onClick={async () => {
+                      const confirmUnblock = window.confirm('Unblock this user? They will be able to message you again.');
+                      if (!confirmUnblock) return;
+
+                      try {
+                        const token = localStorage.getItem('token');
+                        await axios.post(`${API_URL}/users/unblock/${match.user._id}`, {}, {
+                          headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        setLocalBlocked(localBlocked.filter(id => String(id) !== String(match.user._id)));
+                        alert('User unblocked. You can now send messages.');
+                      } catch (err) {
+                        console.error('Error unblocking user:', err);
+                        alert('Could not unblock user. Please try again.');
+                      }
+                    }}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded"
+                  >
+                    Unblock
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate(`/chat/${match._id}`)}
+                    className="w-full btn-primary flex items-center justify-center gap-2"
+                  >
+                    <FaComments /> Send Message
+                  </button>
+                )}
               </div>
             ))}
           </div>
