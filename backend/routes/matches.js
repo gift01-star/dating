@@ -102,9 +102,17 @@ router.get('/', verifyToken, async (req, res) => {
     const formattedMatches = userMatches.map(async (match) => {
       const otherUserId = match.user1 === req.userId ? match.user2 : match.user1;
       const otherUser = await User.findById(otherUserId);
+
+      const userObj = otherUser ? otherUser.toJSON() : { _id: otherUserId };
+
+      // Compute online status: active flag + recent activity within 5 minutes
+      const FIVE_MIN = 5 * 60 * 1000;
+      const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+      userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+
       return {
         _id: match._id,
-        user: otherUser ? otherUser.toJSON() : { _id: otherUserId },
+        user: userObj,
         matchedAt: match.matchedAt
       };
     });
@@ -147,9 +155,18 @@ router.get('/likes', verifyToken, async (req, res) => {
 
     const likesWithUsers = await Promise.all(likesReceived.map(async (like) => {
       const user = await User.findById(like.user1);
+      const userObj = user ? user.toJSON() : null;
+
+      // Compute online status: active flag + recent activity within 5 minutes
+      if (userObj) {
+        const FIVE_MIN = 5 * 60 * 1000;
+        const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+        userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+      }
+
       return {
         ...like.toJSON(),
-        user: user ? user.toJSON() : null
+        user: userObj
       };
     }));
 

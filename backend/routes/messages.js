@@ -158,9 +158,16 @@ router.get('/conversations', verifyToken, async (req, res) => {
         m.receiverId === req.userId && !m.read
       ).length;
 
+      const userObj = otherUser ? otherUser.toJSON() : null;
+      if (userObj) {
+        const FIVE_MIN = 5 * 60 * 1000;
+        const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+        userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+      }
+
       return {
         _id: match._id,
-        user: otherUser ? otherUser.toJSON() : null,
+        user: userObj,
         lastMessage: lastMessage ? {
           message: lastMessage.message,
           createdAt: lastMessage.createdAt,

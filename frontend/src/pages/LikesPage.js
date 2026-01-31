@@ -36,13 +36,18 @@ function LikesPage({ user }) {
   const handleLikeBack = async (likeId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/matches/like-back/${likeId}`, {}, {
+      const response = await axios.post(`${API_URL}/matches/like-back/${likeId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Remove from likes list
       setLikes(likes.filter(l => l._id !== likeId));
       setError('');
+
+      // If backend returned a match, navigate to the chat for that match
+      if (response.data?.match?._id) {
+        navigate(`/chat/${response.data.match._id}`);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Error liking back');
     }
@@ -131,6 +136,11 @@ function LikesPage({ user }) {
                   <div className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
                     ❤️ Likes You
                   </div>
+
+                  {/* Online indicator */}
+                  {like.user?.isOnline && (
+                    <div className="absolute bottom-3 right-3 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                  )}
                 </div>
 
                 {/* Info */}
