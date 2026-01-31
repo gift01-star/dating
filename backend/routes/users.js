@@ -100,7 +100,7 @@ router.put('/profile', verifyToken, async (req, res) => {
     // Log changes to profile completion
     if (profilePercentage !== prevCompletion) {
       console.info(`User ${req.userId} profile completion changed: ${prevCompletion}% -> ${profilePercentage}%`);
-      if (profilePercentage >= 100 && prevCompletion < 100) {
+      if (profilePercentage >= 50 && prevCompletion < 100) {
         console.info(`User ${req.userId} has completed their profile (100%).`);
       }
     }

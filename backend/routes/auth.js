@@ -102,7 +102,7 @@ router.post('/request-reset', async (req, res) => {
 
     await user.save();
 
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset/${token}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'https://frontend-i89x.onrender.com'}/reset/${token}`;
 
     // In production you'd email the link. For dev, return it in the response.
     res.json({ message: 'Reset link created', resetLink });
