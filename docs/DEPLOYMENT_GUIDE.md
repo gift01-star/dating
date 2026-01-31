@@ -48,6 +48,24 @@ https://your-backend.onrender.com/api/payments/webhook
 
 Verify that `PAYCHANGU_WEBHOOK_SECRET` in your backend environment matches the webhook secret configured in Paychangu.
 
+### 1.5 Flutterwave (recommended aggregator)
+
+To use Flutterwave for cards and mobile money (Airtel/TNM), set these environment variables in your backend environment:
+
+```
+FLUTTERWAVE_PUBLIC_KEY=FLWPUBK-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+FLUTTERWAVE_SECRET_KEY=FLWSECK-xxxxxxxxxxxxxxxxxxxxxxxxxxx
+FLUTTERWAVE_API_BASE=https://api.flutterwave.com
+```
+
+Create a webhook in your Flutterwave dashboard pointing at:
+
+```
+https://your-backend.onrender.com/api/payments/webhook
+```
+
+If Flutterwave provides a webhook secret or verification header (e.g., `verif-hash`), set `FLUTTERWAVE_SECRET_KEY` and ensure it matches the dashboard setting. When charging mobile-money customers, the frontend can pre-fill a phone number and Flutterwave will use the provided phone for mobile-money collection flows. Test in their sandbox before going live.
+
 ### 1.3 Deploy Backend to Render
 
 1. Push code to GitHub

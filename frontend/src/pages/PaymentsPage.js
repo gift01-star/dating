@@ -17,9 +17,13 @@ function useQuery() {
 export default function PaymentsPage({ user }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [provider, setProvider] = useState('flutterwave'); // 'flutterwave' or 'paychangu'
+  const [providerMethod, setProviderMethod] = useState('card'); // 'card' or 'mobilemoney'
+  const [phoneNumber, setPhoneNumber] = useState('');
   const query = useQuery();
 
   const navigate = useNavigate();
+  const profileCompletion = user?.profileCompletion || 0;
 
   useEffect(() => {
     // Accept multiple potential query names for the returned session/payment id
@@ -101,23 +105,41 @@ export default function PaymentsPage({ user }) {
   }, [query, navigate]);
 
   const startCheckout = async (planId) => {
+    // Require 50% profile completion on the client as well (server enforces too)
+    if (profileCompletion < 50) {
+      setMessage('Please complete your profile to at least 50% before making a payment.');
+      return;
+    }
+
+    // If mobile money selected, ensure phone provided
+    if (providerMethod === 'mobilemoney' && !phoneNumber) {
+      setMessage('Please provide a phone number for mobile money payments.');
+      return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       const matchId = query.get('matchId');
 
-      const res = await axios.post(`${API_URL}/payments/create-session`, { planId, matchId }, {
+      const res = await axios.post(`${API_URL}/payments/create-session`, { planId, matchId, provider, providerMethod, phoneNumber }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       const { checkoutUrl } = res.data;
       if (checkoutUrl) {
-        // Redirect to checkout (placeholder/test)
+        // Redirect to checkout (provider's hosted page)
         window.location.href = checkoutUrl;
       } else {
         setMessage('Could not create checkout session');
       }
     } catch (error) {
+      // Show server-provided guidance when profile incomplete
+      if (error.response?.status === 403) {
+        setMessage(error.response?.data?.error || 'Please complete your profile before making a payment.');
+        return;
+      }
+
       setMessage(error.response?.data?.error || error.message);
     } finally {
       setLoading(false);
@@ -192,6 +214,41 @@ export default function PaymentsPage({ user }) {
         )}
       </div>
 
+      <div className="mb-4 border rounded p-4">
+        <h3 className="font-semibold mb-2">Payment provider & method</h3>
+        <div className="flex gap-4 mb-3">
+          <label className="inline-flex items-center">
+            <input type="radio" name="provider" checked={provider === 'flutterwave'} onChange={() => setProvider('flutterwave')} className="mr-2" />
+            <span>Flutterwave</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input type="radio" name="provider" checked={provider === 'paychangu'} onChange={() => setProvider('paychangu')} className="mr-2" />
+            <span>Paychangu (fallback)</span>
+          </label>
+        </div>
+
+        {provider === 'flutterwave' && (
+          <div className="mb-2">
+            <label className="inline-flex items-center mr-4">
+              <input type="radio" name="providerMethod" checked={providerMethod === 'card'} onChange={() => setProviderMethod('card')} className="mr-2" />
+              <span>Card</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input type="radio" name="providerMethod" checked={providerMethod === 'mobilemoney'} onChange={() => setProviderMethod('mobilemoney')} className="mr-2" />
+              <span>Mobile Money (Airtel/TNM)</span>
+            </label>
+          </div>
+        )}
+
+        {provider === 'flutterwave' && providerMethod === 'mobilemoney' && (
+          <div className="mb-2">
+            <label className="block text-sm">Phone number for mobile money</label>
+            <input value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="e.g., +265881234567" className="mt-1 p-2 border rounded w-full" />
+            <div className="text-xs text-gray-500 mt-1">Flutterwave will use this number for the mobile-money collection flow.</div>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Plans.map(plan => (
           <div key={plan.id} className="border rounded p-4">
@@ -200,8 +257,8 @@ export default function PaymentsPage({ user }) {
             <div className="mt-4 text-xl font-bold">${plan.price}</div>
             <button
               onClick={() => startCheckout(plan.id)}
-              disabled={loading}
-              className="mt-4 w-full bg-pink-500 text-white py-2 rounded hover:bg-pink-600"
+              disabled={loading || profileCompletion < 50}
+              className={`mt-4 w-full py-2 rounded ${profileCompletion < 50 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-pink-500 text-white hover:bg-pink-600'}`}
             >
               {loading ? 'Processing...' : `Choose ${plan.name}`}
             </button>
@@ -209,8 +266,22 @@ export default function PaymentsPage({ user }) {
         ))}
       </div>
 
-      <div className="mt-8 text-sm text-gray-500">
-        <p>Payments are processed using Paychangu in test mode. No cards are charged during tests.</p>
+      <div className="mt-4">
+        {message && (
+          <div className="p-3 mb-4 rounded text-sm whitespace-pre-wrap">
+            <div className="bg-red-100 text-red-800 p-3 rounded mb-2">{message}</div>
+            {profileCompletion < 50 && (
+              <div className="flex gap-2">
+                <button onClick={() => navigate('/profile')} className="btn-primary">Complete Profile</button>
+                <div className="text-sm text-gray-600 flex items-center">Your profile is {profileCompletion}% complete. You need at least 50% to make payments.</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="text-sm text-gray-500">
+          <p>Payments may be processed using Flutterwave (cards & mobile money) or Paychangu in test mode. No real charges occur in development/test mode.</p>
+        </div>
       </div>
     </div>
   );

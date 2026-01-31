@@ -31,13 +31,18 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-// Create a checkout session (test-mode placeholder)
+// Create a checkout session (supports providers like Paychangu and Flutterwave)
 router.post('/create-session', authenticate, async (req, res) => {
   try {
-    const { planId, matchId } = req.body;
+    const { planId, matchId, provider, providerMethod, phoneNumber } = req.body;
     if (!planId || !PLANS[planId]) return res.status(400).json({ error: 'Invalid plan id' });
 
     const plan = PLANS[planId];
+
+    // Ensure user has at least 50% profile completion before starting payments
+    if ((req.user.profileCompletion || 0) < 50) {
+      return res.status(403).json({ error: 'Please complete your profile to at least 50% before making a payment.' });
+    }
 
     // Create a payment record with status pending (store optional matchId for context)
     const payment = await Payment.create({
@@ -49,7 +54,54 @@ router.post('/create-session', authenticate, async (req, res) => {
       matchId: matchId || null
     });
 
-    // Attempt to create a real Paychangu checkout session when keys are configured
+    // Flutterwave integration
+    if (provider === 'flutterwave') {
+      const flutterKey = process.env.FLUTTERWAVE_SECRET_KEY;
+      const flutterApi = process.env.FLUTTERWAVE_API_BASE || 'https://api.flutterwave.com';
+
+      if (flutterKey && flutterKey !== 'your_flutterwave_secret_here') {
+        try {
+          // Build payload per Flutterwave's v3 payments API
+          const payload = {
+            tx_ref: payment._id,
+            amount: (plan.amount / 100).toFixed(2), // convert cents to main unit
+            currency: plan.currency,
+            redirect_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`,
+            customer: {
+              email: req.user.email,
+              phonenumber: phoneNumber || req.user.phone || '',
+              name: req.user.name || req.user.nickname || ''
+            },
+            payment_options: providerMethod === 'mobilemoney' ? 'mobilemoney' : 'card',
+            meta: { userId: req.user._id, planId: plan.id }
+          };
+
+          const response = await fetch(`${flutterApi}/v3/payments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${flutterKey}`
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json().catch(() => ({}));
+
+          const checkoutUrl = data?.data?.link || data?.data?.authorization_url || data?.data?.checkout_url || null;
+
+          if (response.ok && checkoutUrl) {
+            await Payment.updateOne({ _id: payment._id }, { externalId: data?.data?.id || data?.data?.reference || null, externalData: data, externalCheckoutUrl: checkoutUrl, provider: 'flutterwave' });
+            return res.json({ checkoutUrl, paymentId: payment._id });
+          }
+
+          console.warn('Flutterwave create-session failed', data);
+        } catch (err) {
+          console.error('Flutterwave create-session error', err.message || err);
+        }
+      }
+    }
+
+    // Attempt to create a real Paychangu checkout session when keys are configured (fallback)
     const paySecret = process.env.PAYCHANGU_SECRET;
     const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
@@ -195,9 +247,14 @@ router.post('/webhook', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'No webhook signature provided' });
     }
 
-    // Accept direct match (compat mode) or HMAC-SHA256 verification
+    // Accept direct match (compat mode), HMAC-SHA256 verification, or Flutterwave 'verif-hash' header
     let signatureValid = false;
+    const flutterHash = req.headers['verif-hash'] || req.headers['x-flw-signature'] || '';
+
     if (signature === webhookSecret) {
+      signatureValid = true;
+    } else if (flutterHash && process.env.FLUTTERWAVE_SECRET_KEY && flutterHash === process.env.FLUTTERWAVE_SECRET_KEY) {
+      // Simple Flutterwave header check - match the configured secret
       signatureValid = true;
     } else {
       try {
@@ -216,7 +273,7 @@ router.post('/webhook', express.json(), async (req, res) => {
 
     const event = req.body;
 
-    // Example event types: payment.success, payment.failed
+    // Paychangu style events
     if (event && event.type === 'payment.success') {
       // Support event.data.paymentId or event.data.reference
       const paymentId = event.data?.paymentId || event.data?.reference;
@@ -254,6 +311,41 @@ router.post('/webhook', express.json(), async (req, res) => {
       const payment = await Payment.findById(paymentId);
       if (payment) {
         await Payment.updateOne({ _id: payment._id }, { status: 'failed', failureReason: event.data?.reason || 'unknown', updatedAt: new Date() });
+      }
+    }
+
+    // Flutterwave style events
+    // Example: event.event === 'charge.completed' and event.data.status === 'successful'
+    if (event && (event.event === 'charge.completed' || event.event === 'payment.completed' || event.data?.status === 'successful')) {
+      // tx_ref is the reference we set when creating the payment (we used payment._id as tx_ref)
+      const txRef = event.data?.tx_ref || event.data?.reference || event.data?.meta?.tx_ref;
+      const paymentRef = txRef || event.data?.reference || event.data?.tx_ref;
+
+      if (paymentRef) {
+        const payment = await Payment.findById(String(paymentRef));
+        if (payment) {
+          await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', externalId: event.data?.id || event.data?.reference || null, externalData: event, updatedAt: new Date(), provider: 'flutterwave' });
+
+          // Unlock messaging and subscriptions for the user
+          try {
+            const user = await User.findById(payment.userId);
+            if (user) {
+              if (payment.planId === 'premium' || payment.planId === 'platinum') {
+                const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                await User.updateOne({ _id: user._id }, { subscriptionActive: true, subscriptionPlan: payment.planId, subscriptionExpires: expires, messagesUnlocked: true });
+              }
+
+              if (payment.matchId) {
+                const unlocked = new Set([...(user.unlockedMatches || []), payment.matchId]);
+                await User.updateOne({ _id: user._id }, { unlockedMatches: Array.from(unlocked) });
+              }
+
+              await User.updateOne({ _id: user._id }, { messagesUnlocked: true });
+            }
+          } catch (err) {
+            console.error('Error unlocking messaging after flutterwave payment:', err.message || err);
+          }
+        }
       }
     }
 

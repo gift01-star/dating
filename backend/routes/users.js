@@ -74,7 +74,29 @@ router.put('/profile', verifyToken, async (req, res) => {
       updatedAt: user.updatedAt
     });
 
-    res.json({ message: 'Profile updated', user: user.toJSON() });
+    // Recalculate profileCompletion server-side for reliability
+    const completionFields = [
+      !!user.nickname,
+      !!user.gender,
+      !!user.dob,
+      !!user.university,
+      !!user.course,
+      !!user.year,
+      (user.interests && user.interests.length > 0),
+      !!user.bio,
+      !!user.location,
+      (user.photos && user.photos.length > 0)
+    ];
+
+    const completedCount = completionFields.filter(Boolean).length;
+    const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
+
+    await User.updateOne({ _id: req.userId }, { profileCompletion: profilePercentage });
+
+    // Return updated user
+    const updatedUser = await User.findById(req.userId);
+
+    res.json({ message: 'Profile updated', user: updatedUser.toJSON() });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -175,9 +197,29 @@ router.post('/photos', verifyToken, async (req, res) => {
 
     await user.save();
 
+    // Update profileCompletion after photo change
+    const completionFields = [
+      !!user.nickname,
+      !!user.gender,
+      !!user.dob,
+      !!user.university,
+      !!user.course,
+      !!user.year,
+      (user.interests && user.interests.length > 0),
+      !!user.bio,
+      !!user.location,
+      (user.photos && user.photos.length > 0)
+    ];
+    const completedCount = completionFields.filter(Boolean).length;
+    const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
+    await User.updateOne({ _id: req.userId }, { profileCompletion: profilePercentage });
+
+    const updatedUser = await User.findById(req.userId);
+
     res.json({
       message: 'Photo uploaded successfully',
-      photos: user.photos
+      photos: user.photos,
+      user: updatedUser.toJSON()
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -193,9 +235,29 @@ router.delete('/photos/:photoId', verifyToken, async (req, res) => {
     user.photos = user.photos.filter(p => p._id.toString() !== req.params.photoId);
     await user.save();
 
+    // Update profileCompletion after photo change
+    const completionFields = [
+      !!user.nickname,
+      !!user.gender,
+      !!user.dob,
+      !!user.university,
+      !!user.course,
+      !!user.year,
+      (user.interests && user.interests.length > 0),
+      !!user.bio,
+      !!user.location,
+      (user.photos && user.photos.length > 0)
+    ];
+    const completedCount = completionFields.filter(Boolean).length;
+    const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
+    await User.updateOne({ _id: req.userId }, { profileCompletion: profilePercentage });
+
+    const updatedUser = await User.findById(req.userId);
+
     res.json({
       message: 'Photo deleted successfully',
-      photos: user.photos
+      photos: user.photos,
+      user: updatedUser.toJSON()
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
