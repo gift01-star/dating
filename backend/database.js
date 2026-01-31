@@ -41,8 +41,8 @@ async function ensureTables() {
       unlocked_matches JSONB DEFAULT '[]'::jsonb,
       subscription_active BOOLEAN DEFAULT false,
       subscription_plan TEXT,
-      created_at TIMESTAMP DEFAULT now(),
-      last_active TIMESTAMP DEFAULT now(),
+      createdAt TIMESTAMP DEFAULT now(),
+      lastActive TIMESTAMP DEFAULT now(),
       blocked JSONB DEFAULT '[]'::jsonb,
       interests JSONB DEFAULT '[]'::jsonb,
       bio TEXT DEFAULT '',
@@ -69,6 +69,7 @@ async function ensureTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS profileimage TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "relationshipGoal" TEXT DEFAULT 'Dating';
     ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "updatedAt" timestamp DEFAULT 0;
 
 
 
