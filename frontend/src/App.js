@@ -50,6 +50,14 @@ function App() {
     setUser(null);
   };
 
+  // Expose the logout function globally for compatibility with components
+  useEffect(() => {
+    window.__APP_HANDLE_LOGOUT__ = handleLogout;
+    return () => {
+      if (window.__APP_HANDLE_LOGOUT__ === handleLogout) delete window.__APP_HANDLE_LOGOUT__;
+    };
+  }, [handleLogout]);
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen bg-pink-50">
       <div className="text-center">
@@ -69,14 +77,14 @@ function App() {
         
         {isAuthenticated ? (
           <>
-            <Route path="/discover" element={<DiscoverPage user={user} />} />
-            <Route path="/matches" element={<MatchesPage user={user} />} />
-            <Route path="/likes" element={<LikesPage user={user} />} />
-            <Route path="/messages" element={<MessagesPage user={user} />} />
-            <Route path="/chat/:matchId" element={<ChatPage user={user} />} />
-            <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} />} />
-            <Route path="/payments" element={<PaymentsPage user={user} />} />
-            <Route path="/payments/success" element={<PaymentsPage user={user} />} />
+            <Route path="/discover" element={<DiscoverPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/matches" element={<MatchesPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/likes" element={<LikesPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/messages" element={<MessagesPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/chat/:matchId" element={<ChatPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} handleLogout={handleLogout} />} />
+            <Route path="/payments" element={<PaymentsPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/payments/success" element={<PaymentsPage user={user} handleLogout={handleLogout} />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/discover" />} />
           </>

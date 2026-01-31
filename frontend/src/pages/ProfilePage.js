@@ -6,7 +6,7 @@ import BottomNavBar from '../components/BottomNavBar';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
-function ProfilePage({ user, setUser }) {
+function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [formData, setFormData] = useState({
     nickname: user?.nickname || '',
     gender: user?.gender || '',
@@ -135,10 +135,35 @@ function ProfilePage({ user, setUser }) {
     }
   };
 
-  const handleLogout = () => {
+  // Centralized logout: prefer App-provided handler, otherwise fallback to local logout
+  const performLogout = () => {
+    if (typeof handleLogoutProp === 'function') {
+      try {
+        handleLogoutProp();
+      } catch (err) {
+        console.error('Error in App logout handler:', err);
+      }
+      navigate('/login');
+      return;
+    }
+
+    // Fallback local logout
     localStorage.removeItem('token');
     navigate('/login');
   };
+
+  // For compatibility, expose the App-level handler globally if provided
+  useEffect(() => {
+    if (typeof handleLogoutProp === 'function') {
+      window.__APP_HANDLE_LOGOUT__ = handleLogoutProp;
+    }
+
+    return () => {
+      if (window.__APP_HANDLE_LOGOUT__ === handleLogoutProp) {
+        delete window.__APP_HANDLE_LOGOUT__;
+      }
+    };
+  }, [handleLogoutProp]);
 
   return (
     <>
@@ -154,7 +179,7 @@ function ProfilePage({ user, setUser }) {
           </button>
           <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
           <button
-            onClick={handleLogout}
+            onClick={performLogout}
             className="text-pink-500 hover:text-pink-600"
             title="Logout"
           >
