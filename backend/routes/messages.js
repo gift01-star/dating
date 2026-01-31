@@ -115,15 +115,19 @@ router.get('/:matchId', verifyToken, async (req, res) => {
 
     const msgs = await Message.find({ matchId: req.params.matchId });
 
-    // Mark as read
-    msgs.forEach(msg => {
+    // Mark as read (persist using updateOne for in-memory DB compatibility)
+    for (const msg of msgs) {
       if (String(msg.receiverId) === req.userId && !msg.read) {
         msg.read = true;
         msg.readAt = new Date();
-        // Persist change
-        msg.save().catch(err => console.error('Error saving message read status', err));
+        // Persist change (use updateOne to work with both mongoose and in-memory DB)
+        try {
+          await Message.updateOne({ _id: msg._id }, { read: true, readAt: msg.readAt });
+        } catch (err) {
+          console.error('Error updating message read status', err);
+        }
       }
-    });
+    }
 
     res.json(msgs);
   } catch (error) {

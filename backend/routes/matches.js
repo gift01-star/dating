@@ -77,15 +77,14 @@ router.post('/like/:userId', verifyToken, requireCompleteProfile, async (req, re
 
     if (reverseMatch && reverseMatch.status === 'pending') {
       // Mutual like = Match!
-      reverseMatch.status = 'matched';
-      reverseMatch.matchedAt = new Date();
-      
-      match.status = 'matched';
-      match.matchedAt = new Date();
+      await Match.findOneAndUpdate({ _id: reverseMatch._id }, { status: 'matched', matchedAt: new Date() });
+      await Match.findOneAndUpdate({ _id: match._id }, { status: 'matched', matchedAt: new Date() });
+
+      const updatedMatch = await Match.findOne({ _id: match._id });
 
       return res.status(201).json({
         message: 'It\'s a match!',
-        match: match.toJSON()
+        match: updatedMatch.toJSON()
       });
     }
 
@@ -213,11 +212,10 @@ router.post('/like-back/:matchId', verifyToken, requireCompleteProfile, async (r
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    match.status = 'matched';
-    match.matchedAt = new Date();
-    await match.save();
+    await Match.findOneAndUpdate({ _id: match._id }, { status: 'matched', matchedAt: new Date() });
+    const updated = await Match.findOne({ _id: match._id });
 
-    res.json({ message: 'It\'s a match!', match: match.toJSON() });
+    res.json({ message: 'It\'s a match!', match: updated.toJSON() });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -236,8 +234,7 @@ router.post('/pass-like/:matchId', verifyToken, requireCompleteProfile, async (r
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    match.status = 'rejected';
-    await match.save();
+    await Match.findOneAndUpdate({ _id: match._id }, { status: 'rejected' });
 
     res.json({ message: 'Passed' });
   } catch (error) {

@@ -10,8 +10,7 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    relationshipGoal: 'Dating'
+    confirmPassword: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,8 +48,7 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        relationshipGoal: formData.relationshipGoal
+        confirmPassword: formData.confirmPassword
       });
 
       console.log('Registration successful:', response.data);
@@ -108,17 +106,6 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
               required
               placeholder="your@university.edu"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Relationship Goal</label>
-            <select name="relationshipGoal" value={formData.relationshipGoal} onChange={handleChange} className="input-field">
-              <option value="Dating">Dating</option>
-              <option value="Hookup">Hookup</option>
-              <option value="Friendship">Friendship</option>
-              <option value="Other">Other</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Optional: choose what you're primarily looking for.</p>
           </div>
 
           <div>
