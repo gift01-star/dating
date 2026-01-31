@@ -50,18 +50,24 @@ async function ensureTables() {
       course TEXT DEFAULT '',
       location TEXT DEFAULT '',
       height INTEGER DEFAULT 0,
+      bodyType TEXT DEFAULT '',
       gender TEXT DEFAULT '',
+      year TEXT DEFAULT '',
       dob TIMESTAMP,
       age INTEGER DEFAULT 0,
       profileimage TEXT DEFAULT '',
       relationship_goal TEXT DEFAULT 'Dating'
     );
 
+
     -- Ensure dob and location columns exist on older schemas
     ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS height INTEGER DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS bodyType TEXT DEFAULT '';
+    ATER TABLE users ADD COLUMN IF NOT EXISTS year TEXT DEFAULT '';
     
+
 
     CREATE TABLE IF NOT EXISTS matches (
       id TEXT PRIMARY KEY,
