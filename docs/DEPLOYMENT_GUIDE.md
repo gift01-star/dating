@@ -64,7 +64,7 @@ Create a webhook in your Flutterwave dashboard pointing at:
 https://your-backend.onrender.com/api/payments/webhook
 ```
 
-If Flutterwave provides a webhook secret or verification header (e.g., `verif-hash`), set `FLUTTERWAVE_SECRET_KEY` and ensure it matches the dashboard setting. When charging mobile-money customers, the frontend can pre-fill a phone number and Flutterwave will use the provided phone for mobile-money collection flows. Test in their sandbox before going live.
+If Flutterwave provides a webhook secret or verification header (e.g., `verif-hash`), set `FLUTTERWAVE_WEBHOOK_SECRET` (or `FLUTTERWAVE_SECRET_KEY`) and ensure it matches the dashboard setting. Configure your backend to verify webhooks using an HMAC over the request body, and use the server-side transaction verify API (`/v3/transactions/verify?tx_ref=...`) to confirm successful charges on the return/redirect handler. When charging mobile-money customers, the frontend can pre-fill a phone number and Flutterwave will use the provided phone for the mobile-money collection flows. Test thoroughly in their sandbox before going live.
 
 ### 1.3 Deploy Backend to Render
 

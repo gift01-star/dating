@@ -116,13 +116,23 @@ router.post('/pass/:userId', verifyToken, async (req, res) => {
 router.get('/', verifyToken, async (req, res) => {
   try {
     const allMatches = await Match.find({});
-    
-    const userMatches = allMatches.filter(m => {
-      // Compare as strings to handle ObjectId vs string mismatch
-      return m.status === 'matched' && (String(m.user1) === req.userId || String(m.user2) === req.userId);
-    });
 
-    const formattedMatches = userMatches.map(async (match) => {
+    // Include matches that are matched or have messages (so users see active conversations)
+    const candidateMatches = await Promise.all(allMatches.map(async (m) => {
+      if (!(String(m.user1) === req.userId || String(m.user2) === req.userId)) return null;
+
+      const Message = (await import('../database.js')).Message;
+      const messages = await Message.find({ matchId: m._id });
+
+      if (m.status === 'matched' || (messages && messages.length > 0)) {
+        return { match: m, messages };
+      }
+      return null;
+    }));
+
+    const userMatches = candidateMatches.filter(Boolean);
+
+    const formattedMatches = userMatches.map(async ({ match, messages }) => {
       const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
       const otherUser = await User.findById(otherUserId);
 
@@ -133,10 +143,13 @@ router.get('/', verifyToken, async (req, res) => {
       const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
       userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
 
+      // Use matchedAt when available, otherwise fall back to last message or createdAt
+      const sortAt = match.matchedAt || (messages && messages.length > 0 ? messages[messages.length - 1].createdAt : match.createdAt);
+
       return {
         _id: match._id,
         user: userObj,
-        matchedAt: match.matchedAt
+        matchedAt: sortAt
       };
     });
 

@@ -31,6 +31,41 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// Server-side Flutterwave transaction verification helper
+async function verifyFlutterwaveTransaction(payment) {
+  const flutterKey = process.env.FLUTTERWAVE_SECRET_KEY;
+  const flutterApi = process.env.FLUTTERWAVE_API_BASE || 'https://api.flutterwave.com';
+
+  if (!flutterKey || flutterKey === 'your_flutterwave_secret_here') {
+    return { ok: false, reason: 'No Flutterwave key configured' };
+  }
+
+  try {
+    // Use tx_ref (we set tx_ref to payment._id when creating the payment)
+    const url = `${flutterApi}/v3/transactions/verify?tx_ref=${payment._id}`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${flutterKey}`
+      }
+    });
+
+    const data = await resp.json().catch(() => ({}));
+
+    // If Flutterwave reports a successful charge in response.data.status
+    const status = data?.data?.status || data?.status || (data?.data && data.data[0] && data.data[0].status);
+    if (resp.ok && status && String(status).toLowerCase() === 'successful') {
+      return { ok: true, data };
+    }
+
+    return { ok: false, data };
+  } catch (err) {
+    console.error('Flutterwave verify error', err.message || err);
+    return { ok: false, reason: err.message || String(err) };
+  }
+}
+
 // Create a checkout session (supports providers like Paychangu and Flutterwave)
 router.post('/create-session', authenticate, async (req, res) => {
   try {
@@ -148,7 +183,7 @@ router.post('/create-session', authenticate, async (req, res) => {
   }
 });
 
-// Provider return endpoint: handle provider redirect here, then redirect to frontend
+// Provider return endpoint: handle provider redirect here, verify with provider when possible, then redirect to frontend
 router.get('/return', async (req, res) => {
   try {
     const { paymentId } = req.query;
@@ -157,7 +192,38 @@ router.get('/return', async (req, res) => {
     const payment = await Payment.findById(paymentId);
     if (!payment) return res.status(404).send('Payment not found');
 
-    // Optionally we could validate query params or provider tokens here
+    // If this payment was created with Flutterwave, attempt to verify its status server-side
+    if (payment.provider === 'flutterwave') {
+      try {
+        const verify = await verifyFlutterwaveTransaction(payment);
+        if (verify.ok) {
+          await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', externalData: verify.data, updatedAt: new Date() });
+
+          // Unlock messaging for the user
+          try {
+            const user = await User.findById(payment.userId);
+            if (user) {
+              if (payment.planId === 'premium' || payment.planId === 'platinum') {
+                const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                await User.updateOne({ _id: user._id }, { subscriptionActive: true, subscriptionPlan: payment.planId, subscriptionExpires: expires, messagesUnlocked: true });
+              }
+
+              if (payment.matchId) {
+                const unlocked = new Set([...(user.unlockedMatches || []), payment.matchId]);
+                await User.updateOne({ _id: user._id }, { unlockedMatches: Array.from(unlocked) });
+              }
+
+              await User.updateOne({ _id: user._id }, { messagesUnlocked: true });
+            }
+          } catch (err) {
+            console.error('Error applying post-verification unlocks:', err.message || err);
+          }
+        }
+      } catch (err) {
+        console.error('Error verifying flutterwave payment on return:', err.message || err);
+      }
+    }
+
     const frontendUrl = process.env.FRONTEND_URL || '/';
     const redirectUrl = `${frontendUrl}/payments?sessionId=${payment._id}${payment.matchId ? `&matchId=${payment.matchId}` : ''}`;
 
@@ -165,6 +231,28 @@ router.get('/return', async (req, res) => {
   } catch (err) {
     console.error('Return redirect error:', err.message || err);
     return res.status(500).send('Error processing return');
+  }
+});
+
+// Manual verification endpoint (authenticated) - useful for admins or on-demand checks
+router.post('/verify/:id', authenticate, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+
+    if (payment.provider === 'flutterwave') {
+      const verify = await verifyFlutterwaveTransaction(payment);
+      if (verify.ok) {
+        await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', externalData: verify.data, updatedAt: new Date() });
+        return res.json({ ok: true, payment: await Payment.findById(payment._id) });
+      }
+      return res.json({ ok: false, data: verify.data || verify.reason });
+    }
+
+    return res.status(400).json({ error: 'Verification only supported for Flutterwave payments' });
+  } catch (err) {
+    console.error('Manual verify error:', err.message || err);
+    return res.status(500).json({ error: 'Verification failed' });
   }
 });
 
@@ -250,12 +338,18 @@ router.post('/webhook', express.json(), async (req, res) => {
     // Accept direct match (compat mode), HMAC-SHA256 verification, or Flutterwave 'verif-hash' header
     let signatureValid = false;
     const flutterHash = req.headers['verif-hash'] || req.headers['x-flw-signature'] || '';
+    const flutterWebhookSecret = process.env.FLUTTERWAVE_WEBHOOK_SECRET || process.env.FLUTTERWAVE_SECRET_KEY || '';
 
     if (signature === webhookSecret) {
       signatureValid = true;
-    } else if (flutterHash && process.env.FLUTTERWAVE_SECRET_KEY && flutterHash === process.env.FLUTTERWAVE_SECRET_KEY) {
-      // Simple Flutterwave header check - match the configured secret
-      signatureValid = true;
+    } else if (flutterHash && flutterWebhookSecret) {
+      try {
+        // Verify Flutterwave webhook using HMAC-SHA256 over the raw JSON body
+        const computed = crypto.createHmac('sha256', flutterWebhookSecret).update(JSON.stringify(req.body)).digest('hex');
+        if (String(flutterHash).trim() === computed) signatureValid = true;
+      } catch (err) {
+        console.error('Error verifying flutterwave webhook signature', err);
+      }
     } else {
       try {
         // Compute HMAC over stringified body (best-effort; for exact verification you'd use raw body)
@@ -324,26 +418,36 @@ router.post('/webhook', express.json(), async (req, res) => {
       if (paymentRef) {
         const payment = await Payment.findById(String(paymentRef));
         if (payment) {
-          await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', externalId: event.data?.id || event.data?.reference || null, externalData: event, updatedAt: new Date(), provider: 'flutterwave' });
-
-          // Unlock messaging and subscriptions for the user
+          // Extra verification: call Flutterwave verify endpoint to guard against false positives
           try {
-            const user = await User.findById(payment.userId);
-            if (user) {
-              if (payment.planId === 'premium' || payment.planId === 'platinum') {
-                const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-                await User.updateOne({ _id: user._id }, { subscriptionActive: true, subscriptionPlan: payment.planId, subscriptionExpires: expires, messagesUnlocked: true });
-              }
+            const verify = await verifyFlutterwaveTransaction(payment);
+            if (!verify.ok) {
+              console.warn('Flutterwave webhook received but verify failed, deferring status update', { paymentId: payment._id, verify });
+            } else {
+              await Payment.updateOne({ _id: payment._id }, { status: 'succeeded', externalId: event.data?.id || event.data?.reference || null, externalData: event, updatedAt: new Date(), provider: 'flutterwave' });
 
-              if (payment.matchId) {
-                const unlocked = new Set([...(user.unlockedMatches || []), payment.matchId]);
-                await User.updateOne({ _id: user._id }, { unlockedMatches: Array.from(unlocked) });
-              }
+              // Unlock messaging and subscriptions for the user
+              try {
+                const user = await User.findById(payment.userId);
+                if (user) {
+                  if (payment.planId === 'premium' || payment.planId === 'platinum') {
+                    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                    await User.updateOne({ _id: user._id }, { subscriptionActive: true, subscriptionPlan: payment.planId, subscriptionExpires: expires, messagesUnlocked: true });
+                  }
 
-              await User.updateOne({ _id: user._id }, { messagesUnlocked: true });
+                  if (payment.matchId) {
+                    const unlocked = new Set([...(user.unlockedMatches || []), payment.matchId]);
+                    await User.updateOne({ _id: user._id }, { unlockedMatches: Array.from(unlocked) });
+                  }
+
+                  await User.updateOne({ _id: user._id }, { messagesUnlocked: true });
+                }
+              } catch (err) {
+                console.error('Error unlocking messaging after flutterwave payment:', err.message || err);
+              }
             }
           } catch (err) {
-            console.error('Error unlocking messaging after flutterwave payment:', err.message || err);
+            console.error('Error verifying flutterwave payment during webhook handling', err.message || err);
           }
         }
       }

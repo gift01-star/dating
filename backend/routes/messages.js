@@ -163,20 +163,33 @@ router.get('/conversations', verifyToken, requireCompleteProfile, async (req, re
   try {
     const { Match, User } = await import('../database.js');
     
-    // Get all matches for this user
+    // Get all matches for this user and include any match that has messages (so ongoing conversations show even if not 'matched')
     const allMatches = await Match.find({});
-    const userMatches = allMatches.filter(m => 
-      m.status === 'matched' && (String(m.user1) === req.userId || String(m.user2) === req.userId)
-    );
+    const candidateMatches = await Promise.all(allMatches.map(async (m) => {
+      // Skip matches not involving the user
+      if (!(String(m.user1) === req.userId || String(m.user2) === req.userId)) return null;
 
-    // Get last message for each match
-    const conversations = await Promise.all(userMatches.map(async (match) => {
+      // See if there are messages for this match
+      const msgs = await Message.find({ matchId: m._id });
+
+      // Include if matched or there are any messages
+      if (m.status === 'matched' || (msgs && msgs.length > 0)) {
+        return { match: m, msgs };
+      }
+
+      return null;
+    }));
+
+    const userMatches = candidateMatches.filter(Boolean);
+
+    // Get last message for each match (use already fetched msgs when available)
+    const conversations = await Promise.all(userMatches.map(async ({ match, msgs }) => {
       const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
       const otherUser = await User.findById(otherUserId);
-      
-      const messages = await Message.find({ matchId: match._id });
+
+      const messages = msgs || (await Message.find({ matchId: match._id }));
       const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-      
+
       const unreadCount = messages.filter(m => 
         String(m.receiverId) === req.userId && !m.read
       ).length;

@@ -10,10 +10,13 @@ function MessagesPage({ user }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchConversations();
+    const interval = setInterval(fetchConversations, 5000); // refresh conversations periodically
+    return () => clearInterval(interval);
   }, []);
 
   const fetchConversations = async () => {
@@ -31,6 +34,7 @@ function MessagesPage({ user }) {
         return;
       }
       console.error('Error fetching conversations:', err);
+      setError(err.response?.data?.error || 'Failed to load conversations');
     } finally {
       setLoading(false);
     }
@@ -86,6 +90,12 @@ function MessagesPage({ user }) {
 
         {/* Conversations List */}
         <div>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 max-w-2xl mx-auto">
+              {error}
+            </div>
+          )}
+
           {filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4">
               <FaComments size={48} className="text-blue-300 mb-4" />

@@ -13,6 +13,8 @@ function MatchesPage({ user }) {
 
   useEffect(() => {
     fetchMatches();
+    const interval = setInterval(fetchMatches, 5000); // refresh matches so new conversations/matches show up
+    return () => clearInterval(interval);
   }, []);
 
   const fetchMatches = async () => {
