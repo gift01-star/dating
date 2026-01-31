@@ -16,6 +16,15 @@ function LikesPage({ user }) {
     fetchLikes();
   }, []);
 
+  const handleForbiddenRedirect = (err) => {
+    const msg = err.response?.data?.error || '';
+    if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+      navigate('/profile');
+      return true;
+    }
+    return false;
+  };
+
   const fetchLikes = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -26,7 +35,7 @@ function LikesPage({ user }) {
       setLikes(response.data.likes || []);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load likes');
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Failed to load likes');
       console.error('Error fetching likes:', err);
     } finally {
       setLoading(false);
@@ -49,7 +58,7 @@ function LikesPage({ user }) {
         navigate(`/chat/${response.data.match._id}`);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Error liking back');
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error liking back');
     }
   };
 
@@ -64,7 +73,7 @@ function LikesPage({ user }) {
       setLikes(likes.filter(l => l._id !== likeId));
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Error passing');
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error passing');
     }
   };
 

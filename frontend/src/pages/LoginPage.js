@@ -76,13 +76,16 @@ function LoginPage({ setIsAuthenticated, setUser }) {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn-primary font-medium disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-1/2 btn-primary font-medium disabled:opacity-50 mr-2"
+            >
+              {loading ? 'Logging in...' : 'Login'}
+            </button>
+            <Link to="/reset" className="text-sm text-pink-500 hover:text-pink-600">Forgot password?</Link>
+          </div>
         </form>
 
         <p className="text-center mt-4 text-gray-600">

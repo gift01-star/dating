@@ -35,6 +35,13 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
       return;
     }
 
+    // Password strength: at least 6 chars and include letters and numbers
+    if (formData.password.length < 6 || !/[A-Za-z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
+      setError('Password must be at least 6 characters and include letters and numbers');
+      setLoading(false);
+      return;
+    }
+
     try {
       console.log('Attempting registration with API_URL:', API_URL);
       const response = await axios.post(`${API_URL}/auth/register`, {

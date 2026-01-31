@@ -40,6 +40,11 @@ function ChatPage({ user }) {
       
       setLoading(false);
     } catch (err) {
+      const msg = err.response?.data?.error || '';
+      if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+        navigate('/profile');
+        return;
+      }
       console.error('Error fetching messages:', err);
     }
   };

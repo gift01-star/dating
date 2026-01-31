@@ -26,6 +26,15 @@ function DiscoverPage({ user }) {
     fetchProfiles();
   }, [filters]);
 
+  const handleForbiddenRedirect = (err) => {
+    const msg = err.response?.data?.error || '';
+    if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+      navigate('/profile');
+      return true;
+    }
+    return false;
+  };
+
   const fetchProfiles = async () => {
     try {
       setLoading(true);
@@ -45,6 +54,7 @@ function DiscoverPage({ user }) {
       setCurrentIndex(0);
       setError('');
     } catch (err) {
+      if (handleForbiddenRedirect(err)) return;
       setError(err.response?.data?.error || 'Failed to load profiles');
     } finally {
       setLoading(false);
@@ -64,7 +74,7 @@ function DiscoverPage({ user }) {
 
       setCurrentIndex(prev => prev + 1);
     } catch (err) {
-      setError(err.response?.data?.error || 'Error liking profile');
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error liking profile');
     }
   };
 
@@ -81,7 +91,7 @@ function DiscoverPage({ user }) {
 
       setCurrentIndex(prev => prev + 1);
     } catch (err) {
-      setError(err.response?.data?.error || 'Error passing profile');
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error passing profile');
     }
   };
 

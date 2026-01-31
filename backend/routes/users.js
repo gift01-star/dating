@@ -13,6 +13,10 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     req.userId = decoded.id;
+
+    // Touch lastActive to keep online status fresh (non-blocking)
+    User.updateOne({ _id: decoded.id }, { lastActive: new Date() }).catch(err => console.error('Error updating lastActive', err));
+
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
@@ -84,11 +88,19 @@ router.get('/discover', verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ error: 'User not found' });
 
+    // Require minimal profile completion before accessing discover
+    const hasNickname = !!currentUser.nickname;
+    const hasPhoto = currentUser.photos && currentUser.photos.length > 0;
+    if (!hasNickname || !hasPhoto) {
+      return res.status(403).json({ error: 'Please complete your profile (add a nickname and at least one photo) before discovering profiles.' });
+    }
+
     let allUsers = await User.find({});
     
     // Filter users
     let filteredUsers = allUsers.filter(u => {
-      if (u._id === req.userId) return false;
+      // Compare as strings to handle ObjectId vs string mismatch
+      if (String(u._id) === req.userId) return false;
       if (currentUser.blocked && currentUser.blocked.includes(u._id)) return false;
       if (gender && u.gender !== gender) return false;
       if (university && u.university !== university) return false;

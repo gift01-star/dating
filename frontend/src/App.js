@@ -15,6 +15,8 @@ import TermsPage from './pages/TermsPage';
 import LikesPage from './pages/LikesPage';
 import MessagesPage from './pages/MessagesPage';
 import PaymentsPage from './pages/PaymentsPage';
+import PasswordResetRequestPage from './pages/PasswordResetRequestPage';
+import PasswordResetPage from './pages/PasswordResetPage';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -67,6 +69,19 @@ function App() {
     </div>;
   }
 
+  const isProfileComplete = (u) => {
+    if (!u) return false;
+    // Basic completion rule: nickname + at least one photo
+    return !!(u.nickname && u.photos && u.photos.length > 0);
+  };
+
+  const renderProtected = (element) => {
+    if (!isProfileComplete(user)) {
+      return <Navigate to="/profile" />;
+    }
+    return element;
+  };
+
   return (
     <Router>
       <Routes>
@@ -74,14 +89,16 @@ function App() {
         <Route path="/login" element={!isAuthenticated ? <LoginPage setIsAuthenticated={setIsAuthenticated} setUser={setUser} /> : <Navigate to="/discover" />} />
         <Route path="/register" element={!isAuthenticated ? <RegisterPage setIsAuthenticated={setIsAuthenticated} setUser={setUser} /> : <Navigate to="/discover" />} />
         <Route path="/terms" element={<TermsPage />} />
-        
+        <Route path="/reset" element={<PasswordResetRequestPage />} />
+        <Route path="/reset/:token" element={<PasswordResetPage />} />
+
         {isAuthenticated ? (
           <>
-            <Route path="/discover" element={<DiscoverPage user={user} handleLogout={handleLogout} />} />
-            <Route path="/matches" element={<MatchesPage user={user} handleLogout={handleLogout} />} />
-            <Route path="/likes" element={<LikesPage user={user} handleLogout={handleLogout} />} />
-            <Route path="/messages" element={<MessagesPage user={user} handleLogout={handleLogout} />} />
-            <Route path="/chat/:matchId" element={<ChatPage user={user} handleLogout={handleLogout} />} />
+            <Route path="/discover" element={renderProtected(<DiscoverPage user={user} handleLogout={handleLogout} />)} />
+            <Route path="/matches" element={renderProtected(<MatchesPage user={user} handleLogout={handleLogout} />)} />
+            <Route path="/likes" element={renderProtected(<LikesPage user={user} handleLogout={handleLogout} />)} />
+            <Route path="/messages" element={renderProtected(<MessagesPage user={user} handleLogout={handleLogout} />)} />
+            <Route path="/chat/:matchId" element={renderProtected(<ChatPage user={user} handleLogout={handleLogout} />)} />
             <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} handleLogout={handleLogout} />} />
             <Route path="/payments" element={<PaymentsPage user={user} handleLogout={handleLogout} />} />
             <Route path="/payments/success" element={<PaymentsPage user={user} handleLogout={handleLogout} />} />

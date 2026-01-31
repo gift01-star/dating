@@ -25,6 +25,11 @@ function MessagesPage({ user }) {
 
       setConversations(response.data.conversations || []);
     } catch (err) {
+      const msg = err.response?.data?.error || '';
+      if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+        navigate('/profile');
+        return;
+      }
       console.error('Error fetching conversations:', err);
     } finally {
       setLoading(false);

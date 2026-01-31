@@ -82,10 +82,14 @@ const userSchema = new mongoose.Schema({
   subscriptionActive: { type: Boolean, default: false },
   subscriptionPlan: { type: String, default: null },
   subscriptionExpires: Date,
+  // Password reset token
+  resetToken: String,
+  resetExpires: Date,
   createdAt: {
     type: Date,
     default: Date.now
   },
+
   updatedAt: {
     type: Date,
     default: Date.now

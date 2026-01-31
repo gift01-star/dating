@@ -11,14 +11,36 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     req.userId = decoded.id;
+
+    // Touch lastActive to keep online status fresh (non-blocking)
+    User.updateOne({ _id: decoded.id }, { lastActive: new Date() }).catch(err => console.error('Error updating lastActive', err));
+
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
 
+const requireCompleteProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const hasNickname = !!user.nickname;
+    const hasPhoto = user.photos && user.photos.length > 0;
+
+    if (!hasNickname || !hasPhoto) {
+      return res.status(403).json({ error: 'Please complete your profile (add a nickname and at least one photo) before using messaging features.' });
+    }
+
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Send message
-router.post('/:matchId', verifyToken, async (req, res) => {
+router.post('/:matchId', verifyToken, requireCompleteProfile, async (req, res) => {
   try {
     const { message } = req.body;
 
@@ -29,12 +51,12 @@ router.post('/:matchId', verifyToken, async (req, res) => {
     const match = await Match.findOne({ _id: req.params.matchId });
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
-    const receiverId = match.user1 === req.userId ? match.user2 : match.user1;
+    const receiverId = String(match.user1) === req.userId ? match.user2 : match.user1;
 
     // Check two-free-message limit per conversation
     const user = await User.findById(req.userId);
     const allMessagesForMatch = await Message.find({ matchId: req.params.matchId });
-    const sentByUserCount = allMessagesForMatch.filter(m => m.senderId === req.userId).length;
+    const sentByUserCount = allMessagesForMatch.filter(m => String(m.senderId) === req.userId).length;
 
     // Allow send if user has subscription, has unlocked this match, or is within the free 2 messages
     const unlockedThisMatch = user?.unlockedMatches?.includes(req.params.matchId);
@@ -95,9 +117,11 @@ router.get('/:matchId', verifyToken, async (req, res) => {
 
     // Mark as read
     msgs.forEach(msg => {
-      if (msg.receiverId === req.userId && !msg.read) {
+      if (String(msg.receiverId) === req.userId && !msg.read) {
         msg.read = true;
         msg.readAt = new Date();
+        // Persist change
+        msg.save().catch(err => console.error('Error saving message read status', err));
       }
     });
 
@@ -110,12 +134,7 @@ router.get('/:matchId', verifyToken, async (req, res) => {
 // Mark messages as read
 router.put('/:matchId/read', verifyToken, async (req, res) => {
   try {
-    const messages = await Message.find({ matchId: req.params.matchId, receiverId: req.userId });
-    
-    messages.forEach(msg => {
-      msg.read = true;
-      msg.readAt = new Date();
-    });
+    await Message.updateMany({ matchId: req.params.matchId, receiverId: req.userId, read: false }, { read: true, readAt: new Date() });
 
     res.json({ message: 'Messages marked as read' });
   } catch (error) {
@@ -127,7 +146,7 @@ router.put('/:matchId/read', verifyToken, async (req, res) => {
 router.get('/unread/count', verifyToken, async (req, res) => {
   try {
     const msgs = await Message.find({});
-    const unreadCount = msgs.filter(m => m.receiverId === req.userId && !m.read).length;
+    const unreadCount = msgs.filter(m => String(m.receiverId) === req.userId && !m.read).length;
 
     res.json({ unreadCount });
   } catch (error) {
@@ -136,26 +155,26 @@ router.get('/unread/count', verifyToken, async (req, res) => {
 });
 
 // Get all conversations for a user
-router.get('/conversations', verifyToken, async (req, res) => {
+router.get('/conversations', verifyToken, requireCompleteProfile, async (req, res) => {
   try {
     const { Match, User } = await import('../database.js');
     
     // Get all matches for this user
     const allMatches = await Match.find({});
     const userMatches = allMatches.filter(m => 
-      m.status === 'matched' && (m.user1 === req.userId || m.user2 === req.userId)
+      m.status === 'matched' && (String(m.user1) === req.userId || String(m.user2) === req.userId)
     );
 
     // Get last message for each match
     const conversations = await Promise.all(userMatches.map(async (match) => {
-      const otherUserId = match.user1 === req.userId ? match.user2 : match.user1;
+      const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
       const otherUser = await User.findById(otherUserId);
       
       const messages = await Message.find({ matchId: match._id });
       const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
       
       const unreadCount = messages.filter(m => 
-        m.receiverId === req.userId && !m.read
+        String(m.receiverId) === req.userId && !m.read
       ).length;
 
       const userObj = otherUser ? otherUser.toJSON() : null;

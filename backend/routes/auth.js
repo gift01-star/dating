@@ -17,6 +17,11 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Passwords do not match' });
     }
 
+    // Password strength: at least 6 chars and contains letters and numbers
+    if (password.length < 6 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters and include letters and numbers' });
+    }
+
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ error: 'Email already registered' });
@@ -56,7 +61,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const isPasswordValid = await User.comparePassword(email, password);
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -72,6 +77,59 @@ router.post('/login', async (req, res) => {
       token,
       user: user.toJSON()
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Request password reset (dev-friendly: returns reset link)
+router.post('/request-reset', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal whether email exists
+      return res.json({ message: 'If an account exists, a reset link has been sent' });
+    }
+
+    const crypto = await import('crypto');
+    const token = crypto.randomBytes(20).toString('hex');
+    user.resetToken = token;
+    user.resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    await user.save();
+
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset/${token}`;
+
+    // In production you'd email the link. For dev, return it in the response.
+    res.json({ message: 'Reset link created', resetLink });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Complete password reset
+router.post('/reset', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+
+    // Password strength
+    if (newPassword.length < 6 || !/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters and include letters and numbers' });
+    }
+
+    const user = await User.findOne({ resetToken: token, resetExpires: { $gt: new Date() } });
+    if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
+
+    user.password = newPassword;
+    user.resetToken = undefined;
+    user.resetExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successful' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -11,14 +11,37 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     req.userId = decoded.id;
+
+    // Touch lastActive to keep online status fresh (non-blocking)
+    User.updateOne({ _id: decoded.id }, { lastActive: new Date() }).catch(err => console.error('Error updating lastActive', err));
+
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
 
+// Require a minimal profile completion before accessing certain features
+const requireCompleteProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const hasNickname = !!user.nickname;
+    const hasPhoto = user.photos && user.photos.length > 0;
+
+    if (!hasNickname || !hasPhoto) {
+      return res.status(403).json({ error: 'Please complete your profile (add a nickname and at least one photo) before using this feature.' });
+    }
+
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Like a user
-router.post('/like/:userId', verifyToken, async (req, res) => {
+router.post('/like/:userId', verifyToken, requireCompleteProfile, async (req, res) => {
   try {
     const targetUserId = req.params.userId;
 
@@ -96,11 +119,12 @@ router.get('/', verifyToken, async (req, res) => {
     const allMatches = await Match.find({});
     
     const userMatches = allMatches.filter(m => {
-      return m.status === 'matched' && (m.user1 === req.userId || m.user2 === req.userId);
+      // Compare as strings to handle ObjectId vs string mismatch
+      return m.status === 'matched' && (String(m.user1) === req.userId || String(m.user2) === req.userId);
     });
 
     const formattedMatches = userMatches.map(async (match) => {
-      const otherUserId = match.user1 === req.userId ? match.user2 : match.user1;
+      const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
       const otherUser = await User.findById(otherUserId);
 
       const userObj = otherUser ? otherUser.toJSON() : { _id: otherUserId };
@@ -150,7 +174,7 @@ router.get('/likes', verifyToken, async (req, res) => {
     const allMatches = await Match.find({});
     
     const likesReceived = allMatches.filter(m => {
-      return m.status === 'pending' && m.user2 === req.userId;
+      return m.status === 'pending' && String(m.user2) === req.userId;
     });
 
     const likesWithUsers = await Promise.all(likesReceived.map(async (like) => {
@@ -177,7 +201,7 @@ router.get('/likes', verifyToken, async (req, res) => {
 });
 
 // Like back (mutual match)
-router.post('/like-back/:matchId', verifyToken, async (req, res) => {
+router.post('/like-back/:matchId', verifyToken, requireCompleteProfile, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId);
     
@@ -185,7 +209,7 @@ router.post('/like-back/:matchId', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Like not found' });
     }
 
-    if (match.user2 !== req.userId) {
+    if (String(match.user2) !== req.userId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
@@ -200,7 +224,7 @@ router.post('/like-back/:matchId', verifyToken, async (req, res) => {
 });
 
 // Pass on a like
-router.post('/pass-like/:matchId', verifyToken, async (req, res) => {
+router.post('/pass-like/:matchId', verifyToken, requireCompleteProfile, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId);
     
@@ -208,7 +232,7 @@ router.post('/pass-like/:matchId', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Like not found' });
     }
 
-    if (match.user2 !== req.userId) {
+    if (String(match.user2) !== req.userId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
