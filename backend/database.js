@@ -49,10 +49,14 @@ async function ensureTables() {
       university TEXT DEFAULT '',
       course TEXT DEFAULT '',
       gender TEXT DEFAULT '',
+      dob TIMESTAMP,
       age INTEGER DEFAULT 0,
       profileimage TEXT DEFAULT '',
       relationship_goal TEXT DEFAULT 'Dating'
     );
+
+    -- Ensure dob column exists on older schemas
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TIMESTAMP;
 
     CREATE TABLE IF NOT EXISTS matches (
       id TEXT PRIMARY KEY,
@@ -90,9 +94,49 @@ async function ensureTables() {
 
 // Initialize on startup
 if (usePostgres) {
-  ensureTables().catch(err => {
-    console.error('Error ensuring Postgres tables:', err);
-  });
+  ensureTables()
+    .then(() => {
+      // Quick connection test and log
+      pool.query('SELECT 1').then(() => {
+        console.info('✓ Connected to Postgres and tables ensured');
+      }).catch((err) => {
+        console.error('Postgres connection test failed:', err.message || err);
+      });
+    })
+    .catch(err => {
+      console.error('Error ensuring Postgres tables:', err);
+    });
+}
+
+// Health check helper
+export async function dbStatus() {
+  if (!usePostgres) {
+    return { usePostgres: false, connected: false, reason: 'DATABASE_URL not set - using in-memory fallback' };
+  }
+
+  try {
+    // Basic connectivity check
+    await pool.query('SELECT 1');
+
+    // Get counts for tables (best-effort)
+    const usersRes = await pool.query("SELECT count(*)::int as count FROM users");
+    const matchesRes = await pool.query("SELECT count(*)::int as count FROM matches");
+    const messagesRes = await pool.query("SELECT count(*)::int as count FROM messages");
+    const paymentsRes = await pool.query("SELECT count(*)::int as count FROM payments");
+
+    return {
+      usePostgres: true,
+      connected: true,
+      counts: {
+        users: Number(usersRes.rows[0].count),
+        matches: Number(matchesRes.rows[0].count),
+        messages: Number(messagesRes.rows[0].count),
+        payments: Number(paymentsRes.rows[0].count)
+      }
+    };
+  } catch (err) {
+    return { usePostgres: true, connected: false, reason: err.message || String(err) };
+  }
 }
 
 // --- Exports ---
@@ -127,7 +171,7 @@ export const User = usePostgres ? {
     const photos = JSON.stringify(data.photos || []);
     await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, gender, age, profileimage, relationship_goal)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20)
-    `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.gender || '', data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
+    `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
 
     const res = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
     return wrapRow(res.rows[0]);

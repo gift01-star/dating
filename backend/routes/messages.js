@@ -53,6 +53,18 @@ router.post('/:matchId', verifyToken, requireCompleteProfile, async (req, res) =
 
     const receiverId = String(match.user1) === req.userId ? match.user2 : match.user1;
 
+    // Prevent messaging if either user has blocked the other
+    const receiverUser = await User.findById(receiverId);
+    const senderUser = await User.findById(req.userId);
+
+    if (receiverUser?.blocked && receiverUser.blocked.includes(req.userId)) {
+      return res.status(403).json({ error: 'You cannot send messages to this user (they have blocked you).' });
+    }
+
+    if (senderUser?.blocked && senderUser.blocked.includes(String(receiverId))) {
+      return res.status(403).json({ error: 'You cannot message a user you have blocked. Unblock them first to continue.' });
+    }
+
     // Messaging is unlimited — no payment required anymore
     // (Legacy fields like subscription/messagesUnlocked/unlockedMatches are ignored)
     // We still record the message below as usual.

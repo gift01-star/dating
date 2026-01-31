@@ -101,8 +101,26 @@ app.use(limiter);
 // Serve uploaded files statically
 app.use('/uploads', express.static(uploadsDir));
 
-// In-memory database (using simple data storage)
-console.log('✓ Using in-memory data storage (no database required)');
+// Database startup status
+import { dbStatus } from './database.js';
+
+(async () => {
+  try {
+    const status = await dbStatus();
+    if (status.usePostgres) {
+      if (status.connected) {
+        console.info('✓ Using Postgres database — connected. Counts:', status.counts);
+      } else {
+        console.warn('⚠️ Postgres configured but not connected:', status.reason);
+        console.warn('Falling back to in-memory storage for this instance.');
+      }
+    } else {
+      console.info('✓ DATABASE_URL not set — using in-memory data storage (no DB)');
+    }
+  } catch (err) {
+    console.error('Error checking DB status on startup:', err.message || err);
+  }
+})();
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -322,6 +340,16 @@ app.use('/api/payments', paymentRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running', timestamp: new Date() });
+});
+
+// DB status endpoint for debugging Postgres persistence
+app.get('/api/db-status', async (req, res) => {
+  try {
+    const status = await dbStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
 });
 
 // Error handling middleware

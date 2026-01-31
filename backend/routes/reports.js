@@ -30,8 +30,12 @@ router.post('/', verifyToken, async (req, res) => {
       reportedUser,
       reportedBy: req.userId,
       reason,
-      description
+      description,
+      createdAt: new Date()
     });
+
+    // Log report for operator visibility
+    console.info(`User ${req.userId} reported ${reportedUser}: ${reason}`);
 
     res.status(201).json({
       message: 'Report submitted successfully',
