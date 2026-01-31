@@ -130,7 +130,26 @@ export const calculateMatchScore = (user1, user2, preferences = {}) => {
     maxScore += 10;
   }
 
-  // 9. Verification Status Bonus (8 points)
+  // 9. Relationship Goal Compatibility (12 points)
+  if (user1.relationshipGoal && user2.relationshipGoal) {
+    if (user1.relationshipGoal === user2.relationshipGoal) {
+      totalScore += 12;
+    } else if (
+      (user1.relationshipGoal === 'Hookup' && user2.relationshipGoal === 'Dating') ||
+      (user1.relationshipGoal === 'Dating' && user2.relationshipGoal === 'Hookup')
+    ) {
+      // partial compatibility if one is open to dating and the other to hookups
+      totalScore += 6;
+    } else {
+      // low compatibility if goals differ (e.g., Friendship vs Hookup)
+      totalScore += 3;
+    }
+    maxScore += 12;
+  } else {
+    maxScore += 12;
+  }
+
+  // 10. Verification Status Bonus (8 points)
   if (user1.verified && user2.verified) {
     totalScore += 8;
   } else if (user1.verified || user2.verified) {
@@ -188,6 +207,7 @@ export const calculateMatchScore = (user1, user2, preferences = {}) => {
       ageGap: user1.dob && user2.dob ? Math.abs(calculateAge(user1.dob) - calculateAge(user2.dob)) : 'N/A',
       interests: user1.interests && user2.interests ? countCommonInterests(user1.interests, user2.interests) : 0,
       education: user1.university && user2.university ? (user1.university.toLowerCase() === user2.university.toLowerCase() ? 'Same' : 'Different') : 'N/A',
+      relationship: user1.relationshipGoal && user2.relationshipGoal ? (user1.relationshipGoal === user2.relationshipGoal ? 'Aligned' : 'Different') : 'N/A',
       verified: user1.verified && user2.verified ? 'Both' : user1.verified || user2.verified ? 'One' : 'None'
     }
   };

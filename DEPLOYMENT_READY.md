@@ -9,7 +9,7 @@
 ## 🎯 Key Features
 
 ✅ **Student Verification** - Only verified students can use the platform
-✅ **Smart Matching** - Like/Pass system with mutual matching
+✅ **Smart Matching** - Like/Pass system with mutual matching + relationship goals (Dating / Hookup / Friendship)
 ✅ **Messaging** - Private chat between matched users
 ✅ **Safety First** - Reporting, blocking, and moderation
 ✅ **Admin Dashboard** - Manage users, reports, and platform health

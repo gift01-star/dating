@@ -29,6 +29,7 @@
   - Course / Faculty
   - Year of study
   - Interests & Bio
+  - Relationship goal (Dating, Hookup, Friendship, Other)
   - Up to 5 photos
 
 ### 💕 Matching System
@@ -39,6 +40,7 @@
   - Gender
   - Age range
   - Interests
+  - Relationship goal (Dating / Hookup / Friendship)
 
 ### 💬 Messaging
 - Chat after match

@@ -37,7 +37,7 @@ router.get('/profile/:id', verifyToken, async (req, res) => {
 // Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { nickname, name, gender, dob, location, height, bodyType, university, course, year, interests, bio } = req.body;
+    const { nickname, name, gender, dob, location, height, bodyType, university, course, year, interests, bio, relationshipGoal } = req.body;
 
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -55,6 +55,7 @@ router.put('/profile', verifyToken, async (req, res) => {
     if (year) user.year = year;
     if (interests) user.interests = interests;
     if (bio) user.bio = bio;
+    if (relationshipGoal) user.relationshipGoal = relationshipGoal;
 
     user.updatedAt = new Date();
 
@@ -71,6 +72,7 @@ router.put('/profile', verifyToken, async (req, res) => {
       year: user.year,
       interests: user.interests,
       bio: user.bio,
+      relationshipGoal: user.relationshipGoal,
       updatedAt: user.updatedAt
     });
 
@@ -85,7 +87,8 @@ router.put('/profile', verifyToken, async (req, res) => {
       (user.interests && user.interests.length > 0),
       !!user.bio,
       !!user.location,
-      (user.photos && user.photos.length > 0)
+      (user.photos && user.photos.length > 0),
+      !!user.relationshipGoal
     ];
 
     const completedCount = completionFields.filter(Boolean).length;
@@ -119,18 +122,31 @@ router.get('/discover', verifyToken, async (req, res) => {
 
     let allUsers = await User.find({});
     
-    // Filter users
+    // Filter users (default: only show users with a university — student-only platform)
     let filteredUsers = allUsers.filter(u => {
       // Compare as strings to handle ObjectId vs string mismatch
       if (String(u._id) === req.userId) return false;
       if (currentUser.blocked && currentUser.blocked.includes(u._id)) return false;
+      // Only show profiles that have university set to keep the platform student-focused
+      if (!u.university) return false;
       if (gender && u.gender !== gender) return false;
       if (university && u.university !== university) return false;
       if (location && u.location !== location) return false;
       if (minHeight && u.height && u.height < parseInt(minHeight)) return false;
       if (maxHeight && u.height && u.height > parseInt(maxHeight)) return false;
+      // Relationship filter
+      if (req.query.relationship && u.relationshipGoal !== req.query.relationship) return false;
       return true;
     });
+
+    // Prefer users with the same relationship goal as the current user to surface relevant results
+    if (currentUser.relationshipGoal) {
+      filteredUsers.sort((a, b) => {
+        const aMatch = a.relationshipGoal === currentUser.relationshipGoal ? 1 : 0;
+        const bMatch = b.relationshipGoal === currentUser.relationshipGoal ? 1 : 0;
+        return bMatch - aMatch; // put matching goals first
+      });
+    }
 
     const pageNum = parseInt(page) || 1;
     const limit = 20;
@@ -208,7 +224,8 @@ router.post('/photos', verifyToken, async (req, res) => {
       (user.interests && user.interests.length > 0),
       !!user.bio,
       !!user.location,
-      (user.photos && user.photos.length > 0)
+      (user.photos && user.photos.length > 0),
+      !!user.relationshipGoal
     ];
     const completedCount = completionFields.filter(Boolean).length;
     const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
@@ -246,7 +263,8 @@ router.delete('/photos/:photoId', verifyToken, async (req, res) => {
       (user.interests && user.interests.length > 0),
       !!user.bio,
       !!user.location,
-      (user.photos && user.photos.length > 0)
+      (user.photos && user.photos.length > 0),
+      !!user.relationshipGoal
     ];
     const completedCount = completionFields.filter(Boolean).length;
     const profilePercentage = Math.round((completedCount / completionFields.length) * 100);

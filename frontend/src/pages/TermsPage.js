@@ -105,6 +105,9 @@ function TermsPage() {
               <p className="mb-4">
                 When you create an account on EduLove, you must provide accurate, complete, and current information. You are responsible for maintaining the confidentiality of your password and for all activities that occur under your account.
               </p>
+              <p className="mb-4">
+                EduLove is a student-focused platform — indicate your university and relationship goal (Dating, Hookup, Friendship, Other) in your profile. Be honest about your intentions and age (18+).
+              </p>
               <p>
                 You agree to:
               </p>

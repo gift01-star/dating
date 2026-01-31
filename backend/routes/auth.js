@@ -7,7 +7,7 @@ const router = express.Router();
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, confirmPassword } = req.body;
+    const { name, email, password, confirmPassword, relationshipGoal } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
@@ -30,7 +30,8 @@ router.post('/register', async (req, res) => {
     const user = await User.create({
       name,
       email,
-      password
+      password,
+      relationshipGoal: relationshipGoal || 'Dating'
     });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {

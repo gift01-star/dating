@@ -62,6 +62,8 @@ export const User = {
       gender: '',
       age: 0,
       profileImage: '',
+      // Relationship goal default to 'Dating'
+      relationshipGoal: data.relationshipGoal || 'Dating',
       toJSON: function() {
         const { passwordHash, ...rest } = this;
         return rest;

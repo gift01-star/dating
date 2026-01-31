@@ -18,7 +18,8 @@ function DiscoverPage({ user }) {
     minAge: '',
     maxAge: '',
     minHeight: '',
-    maxHeight: ''
+    maxHeight: '',
+    relationship: ''
   });
   const navigate = useNavigate();
 
@@ -45,6 +46,7 @@ function DiscoverPage({ user }) {
       if (filters.university) query.append('university', filters.university);
       if (filters.minAge) query.append('minAge', filters.minAge);
       if (filters.maxAge) query.append('maxAge', filters.maxAge);
+      if (filters.relationship) query.append('relationship', filters.relationship);
 
       const response = await axios.get(`${API_URL}/users/discover?${query}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -166,6 +168,18 @@ function DiscoverPage({ user }) {
               <option value="Female">Female</option>
               <option value="Other">Other</option>
             </select>
+
+            <select
+              value={filters.relationship}
+              onChange={(e) => setFilters({ ...filters, relationship: e.target.value })}
+              className="input-field text-sm"
+            >
+              <option value="">Any Goal</option>
+              <option value="Dating">Dating</option>
+              <option value="Hookup">Hookup</option>
+              <option value="Friendship">Friendship</option>
+              <option value="Other">Other</option>
+            </select>
             <select
               value={filters.minAge}
               onChange={(e) => setFilters({ ...filters, minAge: e.target.value })}
@@ -243,6 +257,10 @@ function DiscoverPage({ user }) {
                 <p className="text-gray-600 mb-1">
                   🎓 {currentProfile.university}
                 </p>
+              )}
+
+              {currentProfile.relationshipGoal && (
+                <p className="text-sm text-indigo-700 font-medium mb-1">• {currentProfile.relationshipGoal}</p>
               )}
 
               {currentProfile.course && (

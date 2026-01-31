@@ -18,7 +18,8 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
     bio: user?.bio || '',
     location: user?.location || '',
     height: user?.height || '',
-    bodyType: user?.bodyType || ''
+    bodyType: user?.bodyType || '',
+    relationshipGoal: user?.relationshipGoal || 'Dating'
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -44,7 +45,8 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
       formData.interests,
       formData.bio,
       formData.location,
-      photos.length > 0
+      photos.length > 0,
+      formData.relationshipGoal
     ];
     const completed = fields.filter(f => f).length;
     setProfileCompletion(Math.round((completed / fields.length) * 100));
@@ -77,7 +79,8 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
         bio: formData.bio,
         location: formData.location,
         height: formData.height,
-        bodyType: formData.bodyType
+        bodyType: formData.bodyType,
+        relationshipGoal: formData.relationshipGoal
       };
 
       const response = await axios.put(`${API_URL}/users/profile`, updateData, {
@@ -316,6 +319,17 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                     className="input-field"
                     placeholder="Your course"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Relationship Goal</label>
+                  <select name="relationshipGoal" value={formData.relationshipGoal} onChange={handleChange} className="input-field">
+                    <option value="Dating">Dating</option>
+                    <option value="Hookup">Hookup</option>
+                    <option value="Friendship">Friendship</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Choose what you're primarily looking for — dating, hookups, or friendship. Be respectful and honest.</p>
                 </div>
 
                 <div>

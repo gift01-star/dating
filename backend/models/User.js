@@ -36,6 +36,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Other']
   },
+  // Relationship goal: what the user is looking for
+  relationshipGoal: {
+    type: String,
+    enum: ['Dating', 'Hookup', 'Friendship', 'Other'],
+    default: 'Dating'
+  },
   interests: [String],
   bio: String,
   photos: [{

@@ -149,6 +149,12 @@ Our community thrives when members treat each other with respect and kindness. T
 - No unsolicited explicit messages
 - Block/mute available for all users
 
+### Hookups & Casual Dating
+- Hookups and casual dating are allowed when clearly communicated and consensual between adults (18+).
+- Always be explicit about intentions and respect boundaries; 'no' means 'no'.
+- Meet in public places first, tell a friend where you're going, and avoid sharing private or financial information.
+- Report any coercion, pressure, or solicitation—this is strictly prohibited and will be enforced with account sanctions.
+
 ---
 
 ## Appeals Process
