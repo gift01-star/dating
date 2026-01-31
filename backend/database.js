@@ -49,6 +49,7 @@ async function ensureTables() {
       university TEXT DEFAULT '',
       course TEXT DEFAULT '',
       location TEXT DEFAULT '',
+      height INTEGER DEFAULT 0,
       gender TEXT DEFAULT '',
       dob TIMESTAMP,
       age INTEGER DEFAULT 0,
@@ -59,6 +60,8 @@ async function ensureTables() {
     -- Ensure dob and location columns exist on older schemas
     ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS height INTEGER DEFAULT 0;
+    
 
     CREATE TABLE IF NOT EXISTS matches (
       id TEXT PRIMARY KEY,
