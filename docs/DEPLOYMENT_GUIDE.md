@@ -119,6 +119,32 @@ REACT_APP_API_URL=https://your-backend.onrender.com/api
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/edulove
 ```
 
+### 3.3 Use PostgreSQL on Render (optional)
+If you prefer Postgres (e.g., using Render's managed Postgres), set the `DATABASE_URL` environment variable for your Render service. The backend will automatically use Postgres when `DATABASE_URL` is present.
+
+Example Render `DATABASE_URL` (set in Render UI):
+```
+postgres://user:password@host:5432/dbname
+```
+
+Notes:
+- Render uses `DATABASE_URL` and requires `ssl` connections; the server enables SSL when `DATABASE_URL` is detected.
+- Table schemas are created automatically on first start (simple migrations). Test locally and in staging before going to production.
+- If you don't set `DATABASE_URL`, the app will continue to use the in-memory DB for development.
+
+### 3.4 Disable payments (make the site free)
+To temporarily disable payments and make all features free (useful while preparing your payment provider integration or when Postgres is slow), set the following environment variable on your Render Web Service:
+
+```
+PAYMENTS_ENABLED=false
+```
+
+When `PAYMENTS_ENABLED=false`:
+- The server will short-circuit payment-related endpoints and return a clear message indicating payments are disabled.
+- The frontend already shows a "Payments Temporarily Disabled" page.
+
+This lets you operate the app without any paid gating while you finish migrations or provider setup.
+
 ---
 
 ## Step 4: Image Storage (Cloudinary)

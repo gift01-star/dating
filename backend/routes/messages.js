@@ -53,40 +53,9 @@ router.post('/:matchId', verifyToken, requireCompleteProfile, async (req, res) =
 
     const receiverId = String(match.user1) === req.userId ? match.user2 : match.user1;
 
-    // Check two-free-message limit per conversation
-    const user = await User.findById(req.userId);
-    const allMessagesForMatch = await Message.find({ matchId: req.params.matchId });
-    const sentByUserCount = allMessagesForMatch.filter(m => String(m.senderId) === req.userId).length;
-
-    // Allow send if user has subscription, has unlocked this match, or is within the free 2 messages
-    const unlockedThisMatch = user?.unlockedMatches?.includes(req.params.matchId);
-    if (!(user?.subscriptionActive || user?.messagesUnlocked || unlockedThisMatch || sentByUserCount < 2)) {
-      // Create a pending payment record (default to premium subscription) and return a checkout URL so the frontend can redirect immediately
-      try {
-        const payment = await (await import('../database.js')).Payment.create({
-          userId: req.userId,
-          planId: 'premium',
-          amount: 4999,
-          currency: 'USD',
-          status: 'pending',
-          matchId: req.params.matchId
-        });
-
-        const checkoutUrl = `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}&matchId=${req.params.matchId}`;
-
-        return res.status(402).json({
-          error: 'Message limit reached',
-          paymentRequired: true,
-          message: 'You have used your two free messages for this conversation. Please subscribe to continue.',
-          checkoutUrl,
-          paymentId: payment._id
-        });
-      } catch (err) {
-        console.error('Error creating pending payment for message limit:', err.message || err);
-        const checkoutUrl = `${process.env.FRONTEND_URL}/payments?matchId=${req.params.matchId}&plan=premium`;
-        return res.status(402).json({ error: 'Message limit reached', paymentRequired: true, message: 'You have used your two free messages for this conversation. Please subscribe to continue.', checkoutUrl });
-      }
-    }
+    // Messaging is unlimited — no payment required anymore
+    // (Legacy fields like subscription/messagesUnlocked/unlockedMatches are ignored)
+    // We still record the message below as usual.
 
     const newMessage = await Message.create({
       matchId: req.params.matchId,

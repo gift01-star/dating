@@ -332,7 +332,7 @@ function DiscoverPage({ user }) {
         </p>
       </div>
 
-      <BottomNavBar />
+      <BottomNavBar user={user} />
     </div>
   );
 }

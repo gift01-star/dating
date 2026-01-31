@@ -2,9 +2,12 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaFire, FaHeart, FaComments, FaUser } from 'react-icons/fa';
 
-function BottomNavBar() {
+function BottomNavBar({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Hide nav bar until the user has at least 5% profile completion
+  if (!user || (user.profileCompletion || 0) < 5) return null;
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');

@@ -64,14 +64,10 @@ function ChatPage({ user }) {
       setMessage('');
       fetchMessages();
     } catch (err) {
-      // If payment required, redirect to checkout (or payments page)
+      // Payments temporarily disabled — show friendly message instead of redirecting
       if (err.response && err.response.status === 402) {
-        const checkoutUrl = err.response.data?.checkoutUrl;
-        if (checkoutUrl) {
-          window.location.href = checkoutUrl;
-          return;
-        }
-        navigate(`/payments?matchId=${matchId}`);
+        alert('Payments are currently disabled. Messaging is free.');
+        fetchMessages();
         return;
       }
 

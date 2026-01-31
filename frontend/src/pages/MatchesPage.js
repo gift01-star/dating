@@ -115,7 +115,7 @@ function MatchesPage({ user }) {
       </div>
       </div>
 
-      <BottomNavBar />
+      <BottomNavBar user={user} />
     </>
   );
 }

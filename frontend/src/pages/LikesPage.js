@@ -195,7 +195,7 @@ function LikesPage({ user }) {
         )}
       </div>
 
-      <BottomNavBar />
+      <BottomNavBar user={user} />
     </div>
   );
 }

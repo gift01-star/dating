@@ -60,7 +60,7 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
       console.error('Registration error:', err);
       console.error('Error details:', err.response?.data);
       if (err.message === 'Network Error') {
-        setError('Network Error — backend unreachable. Check that REACT_APP_API_URL is correct, your backend is running, and there are no CORS or mixed-content issues.');
+        setError('Something went wrong');
         console.error('Request info:', err.request);
       } else {
         setError(err.response?.data?.error || err.message || 'Registration failed');
@@ -104,7 +104,7 @@ function RegisterPage({ setIsAuthenticated, setUser }) {
               value={formData.email}
               onChange={handleChange}
               required
-              placeholder="your@university.edu"
+              placeholder="your@email.com"
             />
           </div>
 

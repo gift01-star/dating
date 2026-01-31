@@ -12,10 +12,11 @@ export default function PasswordResetPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = React.useCallback(async (e) => {
     e.preventDefault();
     setMessage(null);
 
+    // quick client-side validation to avoid unnecessary network requests
     if (password !== confirmPassword) {
       setMessage('Passwords do not match');
       return;
@@ -28,15 +29,17 @@ export default function PasswordResetPage() {
 
     try {
       setLoading(true);
+      // perform request and navigate immediately on success for snappy UX
       await axios.post(`${API_URL}/auth/reset`, { token, newPassword: password });
-      setMessage('Password reset successful — redirecting to login...');
-      setTimeout(() => navigate('/login'), 1500);
+      // small client log for troubleshooting performance issues
+      console.info('Password reset successful for token', token?.slice ? token.slice(0, 8) : token);
+      navigate('/login');
     } catch (err) {
       setMessage(err.response?.data?.error || 'Could not reset password');
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, password, confirmPassword, navigate]);
 
   return (
     <div className="min-h-screen gradient-header flex items-center justify-center p-4">

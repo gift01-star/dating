@@ -89,6 +89,11 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
 
       setUser(response.data.user);
       setMessage('Profile updated successfully!');
+
+      // Log client-side for analytics/debugging (server logs are authoritative)
+      try {
+        console.info('Profile updated', { userId: response.data.user._id, profileCompletion: response.data.user.profileCompletion });
+      } catch (e) { /* ignore */ }
     } catch (err) {
       setMessage(err.response?.data?.error || 'Failed to update profile');
     } finally {
@@ -519,7 +524,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
       </div>
       </div>
 
-      <BottomNavBar />
+      <BottomNavBar user={user} />
     </>
   );
 }

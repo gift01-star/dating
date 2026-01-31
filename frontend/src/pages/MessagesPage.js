@@ -169,7 +169,7 @@ function MessagesPage({ user }) {
         </div>
       </div>
 
-      <BottomNavBar />
+      <BottomNavBar user={user} />
     </div>
   );
 }

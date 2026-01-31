@@ -54,7 +54,7 @@ function LoginPage({ setIsAuthenticated, setUser }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="your@university.edu"
+              placeholder="your@email.com"
             />
           </div>
 

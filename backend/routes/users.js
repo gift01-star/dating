@@ -94,7 +94,16 @@ router.put('/profile', verifyToken, async (req, res) => {
     const completedCount = completionFields.filter(Boolean).length;
     const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
 
+    const prevCompletion = user.profileCompletion || 0;
     await User.updateOne({ _id: req.userId }, { profileCompletion: profilePercentage });
+
+    // Log changes to profile completion
+    if (profilePercentage !== prevCompletion) {
+      console.info(`User ${req.userId} profile completion changed: ${prevCompletion}% -> ${profilePercentage}%`);
+      if (profilePercentage >= 100 && prevCompletion < 100) {
+        console.info(`User ${req.userId} has completed their profile (100%).`);
+      }
+    }
 
     // Return updated user
     const updatedUser = await User.findById(req.userId);
@@ -231,7 +240,12 @@ router.post('/photos', verifyToken, async (req, res) => {
     const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
     await User.updateOne({ _id: req.userId }, { profileCompletion: profilePercentage });
 
+    // Log profile completion change after photo upload
     const updatedUser = await User.findById(req.userId);
+    if ((updatedUser.profileCompletion || 0) !== (user.profileCompletion || 0)) {
+      console.info(`User ${req.userId} profile completion changed after photo upload: ${user.profileCompletion || 0}% -> ${updatedUser.profileCompletion}%`);
+      if ((updatedUser.profileCompletion || 0) >= 100) console.info(`User ${req.userId} has completed their profile (100%).`);
+    }
 
     res.json({
       message: 'Photo uploaded successfully',
@@ -270,7 +284,12 @@ router.delete('/photos/:photoId', verifyToken, async (req, res) => {
     const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
     await User.updateOne({ _id: req.userId }, { profileCompletion: profilePercentage });
 
+    // Log profile completion change after photo delete
     const updatedUser = await User.findById(req.userId);
+    if ((updatedUser.profileCompletion || 0) !== (user.profileCompletion || 0)) {
+      console.info(`User ${req.userId} profile completion changed after photo deletion: ${user.profileCompletion || 0}% -> ${updatedUser.profileCompletion}%`);
+      if ((updatedUser.profileCompletion || 0) >= 100) console.info(`User ${req.userId} has completed their profile (100%).`);
+    }
 
     res.json({
       message: 'Photo deleted successfully',

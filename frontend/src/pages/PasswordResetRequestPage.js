@@ -18,7 +18,7 @@ export default function PasswordResetRequestPage() {
       const res = await axios.post(`${API_URL}/auth/request-reset`, { email });
       setMessage(res.data.message || 'If an account exists, a reset link has been created.');
       if (res.data.resetLink) {
-        setMessage((prev) => `${prev}\nReset link (dev): ${res.data.resetLink}`);
+        setMessage((prev) => `${prev}\nReset link: ${res.data.resetLink}`);
       }
     } catch (err) {
       setMessage(err.response?.data?.error || 'Could not create reset link');
@@ -44,7 +44,7 @@ export default function PasswordResetRequestPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            placeholder="your@university.edu"
+            placeholder="your@email.com"
           />
 
           <div className="flex gap-2">

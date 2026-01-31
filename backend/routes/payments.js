@@ -6,6 +6,7 @@ import { User, Payment } from '../database.js';
 
 dotenv.config();
 const router = express.Router();
+const PAYMENTS_ENABLED = (process.env.PAYMENTS_ENABLED || 'true') === 'true'; // set to 'false' to turn off payments and make the site free
 
 // Simple plan definitions (could be stored in DB later)
 const PLANS = {
@@ -69,6 +70,8 @@ async function verifyFlutterwaveTransaction(payment) {
 // Create a checkout session (supports providers like Paychangu and Flutterwave)
 router.post('/create-session', authenticate, async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled. All features are free.' });
+
     const { planId, matchId, provider, providerMethod, phoneNumber } = req.body;
     if (!planId || !PLANS[planId]) return res.status(400).json({ error: 'Invalid plan id' });
 
@@ -186,6 +189,8 @@ router.post('/create-session', authenticate, async (req, res) => {
 // Provider return endpoint: handle provider redirect here, verify with provider when possible, then redirect to frontend
 router.get('/return', async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).send('Payments are currently disabled.');
+
     const { paymentId } = req.query;
     if (!paymentId) return res.status(400).send('Missing paymentId');
 
@@ -237,6 +242,8 @@ router.get('/return', async (req, res) => {
 // Manual verification endpoint (authenticated) - useful for admins or on-demand checks
 router.post('/verify/:id', authenticate, async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled.' });
+
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
@@ -259,6 +266,8 @@ router.post('/verify/:id', authenticate, async (req, res) => {
 // Poll session/status endpoint
 router.get('/sessions/:id', authenticate, async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled.' });
+
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
     if (payment.userId !== req.user._id) return res.status(403).json({ error: 'Forbidden' });
@@ -272,6 +281,8 @@ router.get('/sessions/:id', authenticate, async (req, res) => {
 // Get latest pending payment for the authenticated user (optional: filter by matchId)
 router.get('/latest', authenticate, async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled.' });
+
     const { matchId } = req.query;
     let payments = await Payment.find({ userId: req.user._id, status: 'pending' });
 
@@ -291,6 +302,8 @@ router.get('/latest', authenticate, async (req, res) => {
 // Endpoint to complete a payment (test helper) - marks payment succeeded and unlocks messaging for the user
 router.post('/complete/:id', authenticate, async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled.' });
+
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
     if (payment.userId !== req.user._id) return res.status(403).json({ error: 'Forbidden' });
@@ -328,6 +341,8 @@ router.post('/complete/:id', authenticate, async (req, res) => {
 // Webhook endpoint (called by Paychangu) - verify signature/header
 router.post('/webhook', express.json(), async (req, res) => {
   try {
+    if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled.' });
+
     const signature = req.headers['x-paychangu-signature'] || req.headers['x-paychangu-sig'] || '';
     const webhookSecret = process.env.PAYCHANGU_WEBHOOK_SECRET || 'testwebhooksecret';
 
