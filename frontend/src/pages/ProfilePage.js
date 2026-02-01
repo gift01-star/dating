@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaSignOutAlt, FaTrash, FaCamera, FaClock, FaShieldAlt } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [formData, setFormData] = useState({

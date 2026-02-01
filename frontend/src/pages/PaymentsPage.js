@@ -1,6 +1,7 @@
 import React from 'react';
 
 export default function PaymentsPage() {
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full bg-white rounded-lg shadow p-6 text-center">

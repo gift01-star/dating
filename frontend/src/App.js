@@ -18,7 +18,7 @@ import PaymentsPage from './pages/PaymentsPage';
 import PasswordResetRequestPage from './pages/PasswordResetRequestPage';
 import PasswordResetPage from './pages/PasswordResetPage';
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

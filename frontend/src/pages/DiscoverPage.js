@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaTimes, FaArrowLeft, FaComments } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function DiscoverPage({ user }) {
   const [profiles, setProfiles] = useState([]);

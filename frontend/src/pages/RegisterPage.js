@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { FaHeart } from 'react-icons/fa';
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function RegisterPage({ setIsAuthenticated, setUser }) {
   const [formData, setFormData] = useState({
