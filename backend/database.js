@@ -47,8 +47,8 @@ async function ensureTables() {
       unlocked_matches JSONB DEFAULT '[]'::jsonb,
       subscription_active BOOLEAN DEFAULT false,
       subscription_plan TEXT,
-      createdAt TIMESTAMP DEFAULT now(),
-      lastActive TIMESTAMP DEFAULT now(),
+      created_at TIMESTAMP DEFAULT now(),
+      last_active TIMESTAMP DEFAULT now(),
       blocked JSONB DEFAULT '[]'::jsonb,
       interests JSONB DEFAULT '[]'::jsonb,
       bio TEXT DEFAULT '',
@@ -77,7 +77,8 @@ async function ensureTables() {
     ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP DEFAULT now();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "profileCompletion" INTEGER DEFAULT 0;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS "lastActive" TIMESTAMP DEFAULT now();
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT now();
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active TIMESTAMP DEFAULT now();
 
 
 
@@ -211,7 +212,7 @@ export const User = usePostgres ? {
     const passwordHash = await hashPassword(data.password || data.passwordHash || '');
     const photos = JSON.stringify(data.photos || []);
     // Use camelCase column names to match table created by ensureTables()
-    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, "createdAt", "lastActive", blocked, interests, bio, university, course, location, gender, dob, age, profileimage, "relationshipGoal")
+    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, location, gender, dob, age, profileimage, "relationshipGoal")
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
     `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.location || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
 
@@ -237,6 +238,17 @@ export const User = usePostgres ? {
     for (const origKey of Object.keys(data)) {
       let k = origKey;
       let val = data[origKey];
+
+      // Map camelCase keys used in application code to snake_case DB columns
+      if (k === 'lastActive') k = 'last_active';
+      if (k === 'createdAt') k = 'created_at';
+      if (k === 'updatedAt') k = 'updated_at';
+      if (k === 'messagesUnlocked') k = 'messages_unlocked';
+      if (k === 'subscriptionActive') k = 'subscription_active';
+      if (k === 'subscriptionPlan') k = 'subscription_plan';
+      if (k === 'profileImage') k = 'profileimage';
+      if (k === 'passwordHash') k = 'password_hash';
+
       if (k === 'photos' || k === 'unlockedMatches' || k === 'blocked' || k === 'interests') val = JSON.stringify(val || []);
       if (k === 'password') {
         val = await hashPassword(val);
@@ -249,7 +261,7 @@ export const User = usePostgres ? {
 
     if (fields.length === 0) return this.findById(id);
 
-    const q = `UPDATE users SET ${fields.join(', ')}, "lastActive" = now() WHERE id = $${idx} RETURNING *`;
+    const q = `UPDATE users SET ${fields.join(', ')}, last_active = now() WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await pool.query(q, vals);
 
