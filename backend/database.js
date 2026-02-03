@@ -17,6 +17,11 @@ function wrapRow(row) {
   const obj = { ...row };
   obj._id = String(row.id ?? row._id ?? row._id);
   delete obj.id;
+  // Normalize timestamp fields: accept both snake_case and camelCase
+  if (row.created_at && !obj.createdAt) obj.createdAt = row.created_at;
+  if (row.createdAt && !obj.created_at) obj.created_at = row.createdAt;
+  if (row.last_active && !obj.lastActive) obj.lastActive = row.last_active;
+  if (row.lastActive && !obj.last_active) obj.last_active = row.lastActive;
   obj.toJSON = function () { const { password_hash, passwordHash, ...rest } = this; return rest; };
   return obj;
 }
