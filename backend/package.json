@@ -29,7 +29,7 @@
     "cloudinary": "^1.33.0",
     "express-rate-limit": "^6.7.0",
     "ioredis": "^5.3.2",
-    "rate-limit-redis": "^1.8.0",
+    "rate-limit-redis": "^1.7.0",
     "pg": "^8.10.0"
   },
   "devDependencies": {
