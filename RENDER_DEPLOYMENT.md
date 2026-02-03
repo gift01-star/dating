@@ -69,6 +69,21 @@ PORT=5000
 FRONTEND_URL=https://edulove-frontend.onrender.com
 ```
 
+### Using Postgres on Render ✅
+If you prefer persistent SQL storage instead of the in-memory default, add a Postgres database service in Render and set the connection string as `DATABASE_URL` on your backend service. The app will automatically detect `DATABASE_URL` and switch to Postgres (it will ensure tables on startup).
+
+Recommended env vars for a production deployment (payments and subscriptions):
+- `DATABASE_URL` = your Postgres connection string (set by Render DB service)
+- `JWT_SECRET` = strong secret for signing tokens
+- `FRONTEND_URL` / `BACKEND_URL` = your public URLs
+- `PAYMENTS_ENABLED` = `true` or `false` to toggle payments
+- `FLUTTERWAVE_SECRET_KEY` / `FLUTTERWAVE_API_BASE` (optional) — for Flutterwave integration
+- `FLUTTERWAVE_WEBHOOK_SECRET` (optional) — verify flutterwave webhooks
+- `PAYCHANGU_SECRET` / `PAYCHANGU_API_BASE` (optional) — for Paychangu integration
+- `PAYCHANGU_WEBHOOK_SECRET` (optional) — verify Paychangu webhooks
+
+Note: When switching to Postgres, ensure your Postgres instance is reachable from Render and `DATABASE_URL` includes SSL (Render-managed Postgres sets this). The backend logs a DB status on startup that helps debug connectivity.
+
 ### Frontend (.env or Render env vars)
 ```
 REACT_APP_API_URL=https://edulove-backend.onrender.com

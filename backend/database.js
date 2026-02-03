@@ -186,7 +186,8 @@ export const User = usePostgres ? {
     const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
     const passwordHash = await hashPassword(data.password || data.passwordHash || '');
     const photos = JSON.stringify(data.photos || []);
-    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, location, gender, dob, age, profileimage, relationship_goal)
+    // Use camelCase column names to match table created by ensureTables()
+    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, "createdAt", "lastActive", blocked, interests, bio, university, course, location, gender, dob, age, profileimage, "relationshipGoal")
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
     `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.location || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
 
@@ -194,28 +195,34 @@ export const User = usePostgres ? {
     return wrapRow(res.rows[0]);
   },
   async updateOne(query, data) {
-    // support query by _id
-    const id = query._id || query.id;
-    if (!id) throw new Error('updateOne requires _id');
+    // support query by _id or email
+    let id = query._id || query.id;
+    if (!id && query.email) {
+      const u = await this.findOne({ email: query.email });
+      if (!u) throw new Error('User not found for email');
+      id = u._id || u.id;
+    }
+    if (!id) throw new Error('updateOne requires _id or email');
 
     const fields = [];
     const vals = [];
     let idx = 1;
-    for (const key of Object.keys(data)) {
-      let val = data[key];
-      if (key === 'photos' || key === 'unlockedMatches' || key === 'blocked' || key === 'interests') val = JSON.stringify(val || []);
-      if (key === 'password') {
+    for (const origKey of Object.keys(data)) {
+      let k = origKey;
+      let val = data[origKey];
+      if (k === 'photos' || k === 'unlockedMatches' || k === 'blocked' || k === 'interests') val = JSON.stringify(val || []);
+      if (k === 'password') {
         val = await hashPassword(val);
-        key = 'password_hash';
+        k = 'password_hash';
       }
-      fields.push(`\"${key.replace(/\"/g,'')}\" = $${idx}`);
+      fields.push(`\"${k.replace(/\"/g,'')}\" = $${idx}`);
       vals.push(val);
       idx++;
     }
 
     if (fields.length === 0) return this.findById(id);
 
-    const q = `UPDATE users SET ${fields.join(', ')}, last_active = now() WHERE id = $${idx} RETURNING *`;
+    const q = `UPDATE users SET ${fields.join(', ')}, "lastActive" = now() WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await pool.query(q, vals);
     return wrapRow(res.rows[0]);

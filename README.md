@@ -74,7 +74,8 @@
 - REST API
 
 ### Database
-- **MongoDB Atlas**
+- **MongoDB Atlas** (default)
+- **Postgres** — supported via `DATABASE_URL` (set this in Render or your hosting provider to enable Postgres persistence). See `RENDER_DEPLOYMENT.md` for details on Postgres and payments configuration.
 
 ### Security
 - JWT authentication
