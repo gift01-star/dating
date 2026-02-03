@@ -76,6 +76,7 @@
 ### Database
 - **MongoDB Atlas** (default)
 - **Postgres** — supported via `DATABASE_URL` (set this in Render or your hosting provider to enable Postgres persistence). See `RENDER_DEPLOYMENT.md` for details on Postgres and payments configuration.
+- **Redis (optional)** — the backend supports a Redis cache when `REDIS_URL` is set; it is used for short-term caching (user lookups, payment verification), and for Redis-backed rate-limiting in production.
 
 ### Security
 - JWT authentication

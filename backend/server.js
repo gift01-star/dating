@@ -2,10 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+
+// Cache helper (Redis or in-memory fallback)
+import * as cache from './utils/cache.js';
 
 // Import routes
 import userRoutes from './routes/users.js';
@@ -55,8 +59,9 @@ const upload = multer({
 // Trust proxy for rate limiting in Codespaces
 app.set('trust proxy', 1);
 
-// Rate limiting
+// Rate limiting (use Redis-backed store when available)
 const limiter = rateLimit({
+  store: cache.redis ? new RedisStore({ sendCommand: (...args) => cache.redis.call(...args) }) : undefined,
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100 // limit each IP to 100 requests per windowMs
 });

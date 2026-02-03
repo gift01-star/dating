@@ -69,6 +69,19 @@ PORT=5000
 FRONTEND_URL=https://edulove-frontend.onrender.com
 ```
 
+### Optional: Caching / Redis
+If you'd like persistent caching, session storage, and Redis-backed rate-limiting, add a Redis service and set `REDIS_URL` on your backend service. The backend will use Redis when `REDIS_URL` is present (falls back to in-memory cache for development). This is useful for:
+- Short-term caching of user lookups (speeds up login/lookup flows)
+- Caching payment verification responses to reduce provider API calls
+- Redis-backed rate-limiting for consistent limits across instances
+
+### Payments & feature flags
+- `PAYMENTS_ENABLED` = `true` or `false` (default: `true`)
+- `FLUTTERWAVE_*` / `PAYCHANGU_*` variables to enable third-party providers
+- Webhook secrets for provider verification (use Render secrets)
+
+Note: When enabling Redis, redeploy the backend so the Redis connection is established on startup and verify logs show "✓ Connected to Redis".
+
 ### Using Postgres on Render ✅
 If you prefer persistent SQL storage instead of the in-memory default, add a Postgres database service in Render and set the connection string as `DATABASE_URL` on your backend service. The app will automatically detect `DATABASE_URL` and switch to Postgres (it will ensure tables on startup).
 

@@ -1,6 +1,7 @@
 // Database layer with optional Postgres support (falls back to in-memory)
 import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
+import * as cache from './utils/cache.js';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 let pool = null;
@@ -76,6 +77,7 @@ async function ensureTables() {
     ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP DEFAULT now();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "profileCompletion" INTEGER DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "lastActive" TIMESTAMP DEFAULT now();
 
 
 
@@ -165,8 +167,25 @@ export async function dbStatus() {
 export const User = usePostgres ? {
   async findOne(query) {
     if (query.email) {
+      const cacheKey = `user:email:${String(query.email).toLowerCase()}`;
+      try {
+        const cached = await cache.get(cacheKey);
+        if (cached) {
+          // cached value is a JSON string of user.toJSON()
+          return JSON.parse(cached);
+        }
+      } catch (err) {
+        // ignore cache errors
+        console.warn('Cache read failed for', cacheKey, err.message || err);
+      }
+
       const res = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [query.email]);
-      return wrapRow(res.rows[0]);
+      const u = wrapRow(res.rows[0]);
+      if (u) {
+        // store JSON-serializable payload
+        try { await cache.set(cacheKey, JSON.stringify(u.toJSON ? u.toJSON() : u), 30); } catch (err) { /* ignore */ }
+      }
+      return u;
     }
     if (query._id) {
       const res = await pool.query('SELECT * FROM users WHERE id = $1 LIMIT 1', [query._id]);
@@ -195,6 +214,9 @@ export const User = usePostgres ? {
     await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, "createdAt", "lastActive", blocked, interests, bio, university, course, location, gender, dob, age, profileimage, "relationshipGoal")
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
     `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.location || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
+
+    // invalidate cache for this email if present
+    try { await cache.del(`user:email:${String(data.email).toLowerCase()}`); } catch (err) { /* ignore */ }
 
     const res = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
     return wrapRow(res.rows[0]);
@@ -230,8 +252,16 @@ export const User = usePostgres ? {
     const q = `UPDATE users SET ${fields.join(', ')}, "lastActive" = now() WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await pool.query(q, vals);
+
+    // invalidate cache for this email (best-effort)
+    try {
+      const user = wrapRow(res.rows[0]);
+      if (user && user.email) await cache.del(`user:email:${String(user.email).toLowerCase()}`);
+    } catch (err) { /* ignore */ }
+
     return wrapRow(res.rows[0]);
   },
+
   async comparePassword(email, password) {
     const user = await this.findOne({ email });
     if (!user) return false;

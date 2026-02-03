@@ -32,7 +32,8 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-// Server-side Flutterwave transaction verification helper
+// Server-side Flutterwave transaction verification helper (with short cache to avoid duplicate calls)
+import * as cache from '../utils/cache.js';
 async function verifyFlutterwaveTransaction(payment) {
   const flutterKey = process.env.FLUTTERWAVE_SECRET_KEY;
   const flutterApi = process.env.FLUTTERWAVE_API_BASE || 'https://api.flutterwave.com';
@@ -40,6 +41,12 @@ async function verifyFlutterwaveTransaction(payment) {
   if (!flutterKey || flutterKey === 'your_flutterwave_secret_here') {
     return { ok: false, reason: 'No Flutterwave key configured' };
   }
+
+  const cacheKey = `payment:verify:${payment._id}`;
+  try {
+    const cached = await cache.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch (err) { /* ignore */ }
 
   try {
     // Use tx_ref (we set tx_ref to payment._id when creating the payment)
@@ -56,14 +63,15 @@ async function verifyFlutterwaveTransaction(payment) {
 
     // If Flutterwave reports a successful charge in response.data.status
     const status = data?.data?.status || data?.status || (data?.data && data.data[0] && data.data[0].status);
-    if (resp.ok && status && String(status).toLowerCase() === 'successful') {
-      return { ok: true, data };
-    }
+    const result = (resp.ok && status && String(status).toLowerCase() === 'successful') ? { ok: true, data } : { ok: false, data };
 
-    return { ok: false, data };
+    try { await cache.set(cacheKey, JSON.stringify(result), 30); } catch (err) { /* ignore */ }
+    return result;
   } catch (err) {
     console.error('Flutterwave verify error', err.message || err);
-    return { ok: false, reason: err.message || String(err) };
+    const res = { ok: false, reason: err.message || String(err) };
+    try { await cache.set(cacheKey, JSON.stringify(res), 15); } catch (e) { /* ignore */ }
+    return res;
   }
 }
 
