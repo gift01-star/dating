@@ -5,9 +5,15 @@ let redis = null;
 let localCache = new Map();
 
 if (REDIS_URL) {
-  redis = new Redis(REDIS_URL);
-  redis.on('error', (err) => console.error('Redis error', err));
-  redis.on('ready', () => console.info('✓ Connected to Redis'));
+  try {
+    // Guard Redis creation so a bad URL or immediate error doesn't crash startup
+    redis = new Redis(REDIS_URL);
+    redis.on('error', (err) => console.error('Redis error', err));
+    redis.on('ready', () => console.info('✓ Connected to Redis'));
+  } catch (err) {
+    console.error('Redis initialization failed, falling back to in-memory cache:', err && err.message ? err.message : err);
+    redis = null;
+  }
 }
 
 async function get(key) {

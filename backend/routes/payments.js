@@ -347,7 +347,8 @@ router.post('/complete/:id', authenticate, async (req, res) => {
 });
 
 // Webhook endpoint (called by Paychangu) - verify signature/header
-router.post('/webhook', express.json(), async (req, res) => {
+// Use raw body capture for webhook signature verification
+router.post('/webhook', express.json({ verify: (req, res, buf) => { req.rawBody = buf } }), async (req, res) => {
   try {
     if (!PAYMENTS_ENABLED) return res.status(410).json({ error: 'Payments are currently disabled.' });
 
@@ -363,20 +364,23 @@ router.post('/webhook', express.json(), async (req, res) => {
     const flutterHash = req.headers['verif-hash'] || req.headers['x-flw-signature'] || '';
     const flutterWebhookSecret = process.env.FLUTTERWAVE_WEBHOOK_SECRET || process.env.FLUTTERWAVE_SECRET_KEY || '';
 
+    // Prefer raw body when available for HMAC verification
+    const bodyForHmac = req.rawBody || Buffer.from(JSON.stringify(req.body));
+
     if (signature === webhookSecret) {
       signatureValid = true;
     } else if (flutterHash && flutterWebhookSecret) {
       try {
-        // Verify Flutterwave webhook using HMAC-SHA256 over the raw JSON body
-        const computed = crypto.createHmac('sha256', flutterWebhookSecret).update(JSON.stringify(req.body)).digest('hex');
+        // Verify Flutterwave webhook using HMAC-SHA256 over the raw body
+        const computed = crypto.createHmac('sha256', flutterWebhookSecret).update(bodyForHmac).digest('hex');
         if (String(flutterHash).trim() === computed) signatureValid = true;
       } catch (err) {
         console.error('Error verifying flutterwave webhook signature', err);
       }
     } else {
       try {
-        // Compute HMAC over stringified body (best-effort; for exact verification you'd use raw body)
-        const computed = crypto.createHmac('sha256', webhookSecret).update(JSON.stringify(req.body)).digest('hex');
+        // Compute HMAC over raw body (best-effort; falls back to JSON-stringified body)
+        const computed = crypto.createHmac('sha256', webhookSecret).update(bodyForHmac).digest('hex');
         const sig = String(signature).replace(/^(sha256=|v1=)/, '').trim();
         if (sig === computed) signatureValid = true;
       } catch (err) {

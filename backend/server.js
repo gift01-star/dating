@@ -24,6 +24,16 @@ import { User } from './database.js';
 
 dotenv.config();
 
+// Startup warnings (non-fatal)
+const paymentsEnabled = (process.env.PAYMENTS_ENABLED || 'true') === 'true';
+if (paymentsEnabled && !(process.env.PAYCHANGU_SECRET || process.env.FLUTTERWAVE_SECRET_KEY)) {
+  console.warn('⚠️ Payments are enabled but no provider keys found (PAYCHANGU_SECRET or FLUTTERWAVE_SECRET_KEY). Provider checkout sessions will fall back to local test flows.');
+}
+
+if (process.env.REDIS_URL && !require('./utils/cache.js').redis) {
+  console.warn('⚠️ REDIS_URL is set but Redis connection is not available; falling back to in-memory cache for this instance.');
+}
+
 const app = express();
 
 // Create uploads directory if it doesn't exist
@@ -60,8 +70,19 @@ const upload = multer({
 app.set('trust proxy', 1);
 
 // Rate limiting (use Redis-backed store when available)
+let rateLimitStore = undefined;
+if (cache.redis) {
+  try {
+    // Use a sendCommand shim so rate-limit-redis uses our ioredis instance
+    rateLimitStore = new RedisStore({ sendCommand: (...args) => cache.redis.call(...args) });
+  } catch (err) {
+    console.error('Error creating RedisStore for rate limiter, falling back to in-memory rate store:', err && err.message ? err.message : err);
+    rateLimitStore = undefined;
+  }
+}
+
 const limiter = rateLimit({
-  store: cache.redis ? new RedisStore({ sendCommand: (...args) => cache.redis.call(...args) }) : undefined,
+  store: rateLimitStore,
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100 // limit each IP to 100 requests per windowMs
 });
