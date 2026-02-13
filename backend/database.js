@@ -169,7 +169,9 @@ export async function dbStatus() {
 export const User = usePostgres ? {
   async findOne(query) {
     if (query.email) {
-      const cacheKey = `user:email:${String(query.email).toLowerCase()}`;
+      // always normalize email casing for lookups
+      const email = String(query.email).toLowerCase();
+      const cacheKey = `user:email:${email}`;
       try {
         const cached = await cache.get(cacheKey);
         if (cached) {
@@ -181,7 +183,7 @@ export const User = usePostgres ? {
         console.warn('Cache read failed for', cacheKey, err.message || err);
       }
 
-      const res = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [query.email]);
+      const res = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
       const u = wrapRow(res.rows[0]);
       if (u) {
         // store JSON-serializable payload
@@ -208,6 +210,8 @@ export const User = usePostgres ? {
     return res.rows.map(wrapRow);
   },
   async create(data) {
+    // ensure email is normalized
+    if (data.email) data.email = String(data.email).toLowerCase();
     // generate a simple id if not provided
     const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
     const passwordHash = await hashPassword(data.password || data.passwordHash || '');
@@ -276,7 +280,8 @@ export const User = usePostgres ? {
   },
 
   async comparePassword(email, password) {
-    const user = await this.findOne({ email });
+    const normalized = String(email).toLowerCase();
+    const user = await this.findOne({ email: normalized });
     if (!user) return false;
     return comparePassword(password, user.password_hash || user.passwordHash || '');
   }

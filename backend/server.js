@@ -173,7 +173,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     console.log('Incoming /api/auth/register request from', req.ip, 'origin:', req.headers.origin);
     console.log('Request body keys:', Object.keys(req.body));
-    const { name, email, password, confirmPassword } = req.body;
+    let { name, email, password, confirmPassword } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
@@ -183,6 +183,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Passwords do not match' });
     }
 
+    email = email.toLowerCase();
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ error: 'Email already registered' });
@@ -211,12 +212,13 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
+    email = email.toLowerCase();
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
