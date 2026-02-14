@@ -41,6 +41,94 @@ const requireMinimumProfile = async (req, res, next) => {
   }
 };
 
+// === SPECIFIC ROUTES (must come FIRST before /:matchId pattern routes) ===
+
+// Get all conversations for a user
+router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res) => {
+  try {
+    const { Match, User } = await import('../database.js');
+    
+    // Get all matches for this user and include any match that has messages (so ongoing conversations show even if not 'matched')
+    const allMatches = await Match.find({});
+    const candidateMatches = await Promise.all(allMatches.map(async (m) => {
+      // Skip matches not involving the user
+      if (!(String(m.user1) === req.userId || String(m.user2) === req.userId)) return null;
+
+      // See if there are messages for this match
+      const msgs = await Message.find({ matchId: m._id });
+
+      // Include if matched or there are any messages
+      if (m.status === 'matched' || (msgs && msgs.length > 0)) {
+        return { match: m, msgs };
+      }
+
+      return null;
+    }));
+
+    const userMatches = candidateMatches.filter(Boolean);
+
+    // Get last message for each match (use already fetched msgs when available)
+    const conversations = await Promise.all(userMatches.map(async ({ match, msgs }) => {
+      const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
+      const otherUser = await User.findById(otherUserId);
+
+      const messages = msgs || (await Message.find({ matchId: match._id }));
+      const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+
+      const unreadCount = messages.filter(m => 
+        String(m.receiverId) === req.userId && !m.read
+      ).length;
+
+      const userObj = otherUser ? otherUser.toJSON() : null;
+      if (userObj) {
+        const FIVE_MIN = 5 * 60 * 1000;
+        const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+        userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+      }
+
+      return {
+        _id: match._id,
+        user: userObj,
+        lastMessage: lastMessage ? {
+          message: lastMessage.message,
+          createdAt: lastMessage.createdAt,
+          senderId: lastMessage.senderId
+        } : null,
+        unreadCount
+      };
+    }));
+
+    // Sort by online status first, then by last message date
+    conversations.sort((a, b) => {
+      // Prioritize online users
+      if (a.user?.isOnline && !b.user?.isOnline) return -1;
+      if (!a.user?.isOnline && b.user?.isOnline) return 1;
+      // Then sort by most recent message
+      const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    res.json({ conversations });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get unread count
+router.get('/unread/count', verifyToken, async (req, res) => {
+  try {
+    const msgs = await Message.find({});
+    const unreadCount = msgs.filter(m => String(m.receiverId) === req.userId && !m.read).length;
+
+    res.json({ unreadCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// === PATTERN-BASED ROUTES (/:matchId routes) ===
+
 // Send message
 router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
@@ -129,85 +217,29 @@ router.put('/:matchId/read', verifyToken, async (req, res) => {
   }
 });
 
-// Get unread count
-router.get('/unread/count', verifyToken, async (req, res) => {
+// Get messages for a match
+router.get('/:matchId', verifyToken, async (req, res) => {
   try {
-    const msgs = await Message.find({});
-    const unreadCount = msgs.filter(m => String(m.receiverId) === req.userId && !m.read).length;
+    const match = await Match.findOne({ _id: req.params.matchId });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
 
-    res.json({ unreadCount });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const msgs = await Message.find({ matchId: req.params.matchId });
 
-// Get all conversations for a user
-router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res) => {
-  try {
-    const { Match, User } = await import('../database.js');
-    
-    // Get all matches for this user and include any match that has messages (so ongoing conversations show even if not 'matched')
-    const allMatches = await Match.find({});
-    const candidateMatches = await Promise.all(allMatches.map(async (m) => {
-      // Skip matches not involving the user
-      if (!(String(m.user1) === req.userId || String(m.user2) === req.userId)) return null;
-
-      // See if there are messages for this match
-      const msgs = await Message.find({ matchId: m._id });
-
-      // Include if matched or there are any messages
-      if (m.status === 'matched' || (msgs && msgs.length > 0)) {
-        return { match: m, msgs };
+    // Mark as read (persist using updateOne for in-memory DB compatibility)
+    for (const msg of msgs) {
+      if (String(msg.receiverId) === req.userId && !msg.read) {
+        msg.read = true;
+        msg.readAt = new Date();
+        // Persist change (use updateOne to work with both mongoose and in-memory DB)
+        try {
+          await Message.updateOne({ _id: msg._id }, { read: true, readAt: msg.readAt });
+        } catch (err) {
+          console.error('Error updating message read status', err);
+        }
       }
+    }
 
-      return null;
-    }));
-
-    const userMatches = candidateMatches.filter(Boolean);
-
-    // Get last message for each match (use already fetched msgs when available)
-    const conversations = await Promise.all(userMatches.map(async ({ match, msgs }) => {
-      const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
-      const otherUser = await User.findById(otherUserId);
-
-      const messages = msgs || (await Message.find({ matchId: match._id }));
-      const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-
-      const unreadCount = messages.filter(m => 
-        String(m.receiverId) === req.userId && !m.read
-      ).length;
-
-      const userObj = otherUser ? otherUser.toJSON() : null;
-      if (userObj) {
-        const FIVE_MIN = 5 * 60 * 1000;
-        const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
-        userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
-      }
-
-      return {
-        _id: match._id,
-        user: userObj,
-        lastMessage: lastMessage ? {
-          message: lastMessage.message,
-          createdAt: lastMessage.createdAt,
-          senderId: lastMessage.senderId
-        } : null,
-        unreadCount
-      };
-    }));
-
-    // Sort by online status first, then by last message date
-    conversations.sort((a, b) => {
-      // Prioritize online users
-      if (a.user?.isOnline && !b.user?.isOnline) return -1;
-      if (!a.user?.isOnline && b.user?.isOnline) return 1;
-      // Then sort by most recent message
-      const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
-      const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
-      return bTime - aTime;
-    });
-
-    res.json({ conversations });
+    res.json(msgs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

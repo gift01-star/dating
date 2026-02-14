@@ -26,6 +26,18 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'User and reason required' });
     }
 
+    // Ensure reportedUser is not the same as the current user
+    if (String(reportedUser) === String(req.userId)) {
+      return res.status(400).json({ error: 'You cannot report yourself' });
+    }
+
+    // Verify the reported user exists
+    const { User } = await import('../database.js');
+    const reportedUserExists = await User.findById(reportedUser);
+    if (!reportedUserExists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     const report = await Report.create({
       reportedUser,
       reportedBy: req.userId,
@@ -35,10 +47,10 @@ router.post('/', verifyToken, async (req, res) => {
     });
 
     // Log report for operator visibility
-    console.info(`User ${req.userId} reported ${reportedUser}: ${reason}`);
+    console.info(`User ${req.userId} reported ${reportedUser}: ${reason}${description ? ' - ' + description : ''}`);
 
     res.status(201).json({
-      message: 'Report submitted successfully',
+      message: 'Report submitted successfully. Thank you for helping keep the community safe.',
       report
     });
   } catch (error) {

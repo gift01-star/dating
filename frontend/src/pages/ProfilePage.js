@@ -136,8 +136,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       console.error('Photo upload error:', err);
-      setMessage(err.response?.data?.error || 'Failed to upload photo. Please try again.
-      setMessage(err.response?.data?.error || 'Failed to upload photo');
+      setMessage(err.response?.data?.error || 'Failed to upload photo. Please try again.');
     } finally {
       setUploadingPhoto(false);
     }

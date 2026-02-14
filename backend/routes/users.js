@@ -184,13 +184,16 @@ router.post('/block/:id', verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     
     if (!user.blocked) user.blocked = [];
-    if (!user.blocked.includes(req.params.id)) {
+    
+    // Check if already blocked (compare as strings to handle ObjectId vs string)
+    const alreadyBlocked = user.blocked.some(id => String(id) === String(req.params.id));
+    if (!alreadyBlocked) {
       user.blocked.push(req.params.id);
     }
     
     await User.updateOne({ _id: req.userId }, { blocked: user.blocked });
 
-    res.json({ message: 'User blocked' });
+    res.json({ message: 'User blocked', blocked: user.blocked });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -309,11 +312,12 @@ router.post('/unblock/:id', verifyToken, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     
-    user.blocked = (user.blocked || []).filter(id => id !== req.params.id);
+    // Filter blocked list, comparing as strings to handle ObjectId vs string
+    user.blocked = (user.blocked || []).filter(id => String(id) !== String(req.params.id));
     
     await User.updateOne({ _id: req.userId }, { blocked: user.blocked });
 
-    res.json({ message: 'User unblocked' });
+    res.json({ message: 'User unblocked', blocked: user.blocked });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

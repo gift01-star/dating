@@ -120,67 +120,85 @@ function ChatPage({ user }) {
 
   // Block a user
   const handleBlockUser = async (blockUserId) => {
-    const confirmBlock = window.confirm('Block this user? They will not be able to message you.');
+    const confirmBlock = window.confirm('🔒 Block this user?\n\nThey will not be able to send you messages. You can unblock them later from your matches.');
     if (!confirmBlock) return;
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/users/block/${blockUserId}`, {}, {
+      const response = await axios.post(`${API_URL}/users/block/${blockUserId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert('User blocked. You will no longer receive messages from them.');
+      // Update local user state
+      if (response.data.blocked) {
+        setLocalUser({ ...localUser, blocked: response.data.blocked });
+      }
+
+      alert('✅ User blocked successfully.\n\nYou will not receive messages from them.');
       navigate('/matches');
     } catch (err) {
       console.error('Error blocking user:', err);
-      alert('Could not block user. Please try again.');
+      alert('❌ Could not block user. ' + (err.response?.data?.error || 'Please try again.'));
     }
   };
 
   // Unblock a user
   const handleUnblockUser = async (unblockUserId) => {
-    const confirmUnblock = window.confirm('Unblock this user? They will be able to message you again.');
+    const confirmUnblock = window.confirm('🔓 Unblock this user?\n\nThey will be able to send you messages again.');
     if (!confirmUnblock) return;
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/users/unblock/${unblockUserId}`, {}, {
+      const response = await axios.post(`${API_URL}/users/unblock/${unblockUserId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Update local user state to reflect unblock immediately
-      const updatedBlocked = (localUser.blocked || []).filter(id => String(id) !== String(unblockUserId));
-      setLocalUser({ ...localUser, blocked: updatedBlocked });
+      // Update local user state with new blocked list
+      if (response.data.blocked) {
+        setLocalUser({ ...localUser, blocked: response.data.blocked });
+      } else {
+        // Fallback: filter manually
+        const updatedBlocked = (localUser.blocked || []).filter(id => String(id) !== String(unblockUserId));
+        setLocalUser({ ...localUser, blocked: updatedBlocked });
+      }
 
-      alert('User unblocked. You can now send messages.');
+      alert('✅ User unblocked successfully.\n\nYou can now exchange messages with them.');
       fetchMessages();
     } catch (err) {
       console.error('Error unblocking user:', err);
-      alert('Could not unblock user. Please try again.');
+      alert('❌ Could not unblock user. ' + (err.response?.data?.error || 'Please try again.'));
     }
   };
 
   // Report a user
   const handleReportUser = async (reportUserId) => {
-    const reason = window.prompt('Report reason (required): e.g. Insulting messages, harassment');
-    if (!reason || !reason.trim()) return;
+    const reason = window.prompt('📋 Report reason (required):\n\nExamples: Insulting messages, Harassment, Inappropriate content, Spam');
+    if (!reason || !reason.trim()) {
+      alert('⚠️ Report cancelled. A reason is required.');
+      return;
+    }
 
-    const description = window.prompt('Additional details (optional):');
+    const description = window.prompt('📝 Additional details (optional):\n\nProvide more information to help us review the report.');
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/reports`, {
+      const response = await axios.post(`${API_URL}/reports`, {
         reportedUser: reportUserId,
-        reason,
-        description
+        reason: reason.trim(),
+        description: description?.trim() || ''
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert('Report submitted. Thank you for helping keep the community safe.');
+      alert('✅ Report submitted successfully!\n\nThank you for helping keep the community safe. Our team will review this report.');
+      console.info('Report submitted:', response.data);
     } catch (err) {
       console.error('Error submitting report:', err);
-      alert('Could not submit report. Please try again.');
+      if (err.response?.status === 400 && err.response?.data?.error?.includes('yourself')) {
+        alert('❌ You cannot report yourself.');
+      } else {
+        alert('❌ Could not submit report. ' + (err.response?.data?.error || 'Please try again.'));
+      }
     }
   };
 

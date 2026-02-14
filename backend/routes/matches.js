@@ -247,7 +247,7 @@ router.get('/likes', verifyToken, async (req, res) => {
 });
 
 // Like back (mutual match)
-router.post('/like-back/:matchId', verifyToken, requireCompleteProfile, async (req, res) => {
+router.post('/like-back/:matchId', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId);
     
@@ -269,7 +269,7 @@ router.post('/like-back/:matchId', verifyToken, requireCompleteProfile, async (r
 });
 
 // Pass on a like
-router.post('/pass-like/:matchId', verifyToken, requireCompleteProfile, async (req, res) => {
+router.post('/pass-like/:matchId', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
     const match = await Match.findById(req.params.matchId);
     
