@@ -259,10 +259,20 @@ function DiscoverPage({ user }) {
                   <p className="text-gray-600 text-lg font-semibold">
                     {currentProfile.gender}{currentProfile.height && `, ${currentProfile.height}cm`}
                   </p>
+                  <p className={`text-sm font-medium mt-1 ${currentProfile.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                    {currentProfile.isOnline ? '🟢 Online' : '⚪ Offline'}
+                  </p>
                 </div>
-                {currentProfile.verified && (
-                  <span className="text-blue-600 text-xl">✓ Verified</span>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                  {currentProfile.verified && (
+                    <span className="text-blue-600 text-xl">✓ Verified</span>
+                  )}
+                  {currentProfile.isOnline && (
+                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                      🟢 Online
+                    </span>
+                  )}
+                </div>
               </div>
 
               {currentProfile.location && (

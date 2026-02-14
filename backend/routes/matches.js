@@ -208,12 +208,12 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // Get all likes received
-router.get('/likes', verifyToken, async (req, res) => {
+router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
     const allMatches = await Match.find({});
     
     const likesReceived = allMatches.filter(m => {
-      return m.status === 'pending' && String(m.user2) === req.userId;
+      return m.status === 'pending' && String(m.user2) === String(req.userId);
     });
 
     const likesWithUsers = await Promise.all(likesReceived.map(async (like) => {

@@ -162,7 +162,16 @@ router.get('/discover', verifyToken, async (req, res) => {
     const pageNum = parseInt(page) || 1;
     const limit = 20;
     const start = (pageNum - 1) * limit;
-    const users = filteredUsers.slice(start, start + limit).map(u => u.toJSON());
+    const users = filteredUsers.slice(start, start + limit).map(u => {
+      const userObj = u.toJSON();
+      
+      // Compute online status: active flag + recent activity within 5 minutes
+      const FIVE_MIN = 5 * 60 * 1000;
+      const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+      userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+      
+      return userObj;
+    });
 
     res.json({
       users,

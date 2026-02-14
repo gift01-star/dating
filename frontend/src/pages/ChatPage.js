@@ -1,10 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag, FaSmile } from 'react-icons/fa';
+import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag, FaSmile, FaCheck, FaCheckDouble } from 'react-icons/fa';
 import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+// Format date/time helpers
+const formatMessageTime = (date) => {
+  const now = new Date();
+  const msgDate = new Date(date);
+  const isToday = now.toDateString() === msgDate.toDateString();
+  const isYesterday = new Date(now.getTime() - 86400000).toDateString() === msgDate.toDateString();
+  
+  if (isToday) {
+    return msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } else if (isYesterday) {
+    return 'Yesterday ' + msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } else {
+    return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + 
+           msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+};
+
+const formatDateSeparator = (date) => {
+  const msgDate = new Date(date);
+  const now = new Date();
+  const isToday = now.toDateString() === msgDate.toDateString();
+  const isYesterday = new Date(now.getTime() - 86400000).toDateString() === msgDate.toDateString();
+  
+  if (isToday) {
+    return 'Today';
+  } else if (isYesterday) {
+    return 'Yesterday';
+  } else {
+    return msgDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: msgDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+  }
+};
+
+// Group messages by date
+const groupMessagesByDate = (messages) => {
+  const grouped = {};
+  
+  messages.forEach(msg => {
+    const date = new Date(msg.createdAt);
+    const dateKey = date.toDateString();
+    
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+    grouped[dateKey].push(msg);
+  });
+  
+  return grouped;
+};
 
 function ChatPage({ user }) {
   const { matchId } = useParams();
@@ -15,10 +64,20 @@ function ChatPage({ user }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
+  const messagesEndRef = React.useRef(null);
 
   // Keep a local copy of the user so we can update blocked/unblocked state locally
   const [localUser, setLocalUser] = useState(user);
   useEffect(() => setLocalUser(user), [user]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [messages]);
 
   useEffect(() => {
     fetchMessages();
@@ -293,44 +352,75 @@ function ChatPage({ user }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
-        <div className="space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full pb-20 md:pb-4">
+        <div className="space-y-6">
           {messages.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              <p>Start the conversation! 💬</p>
+            <div className="text-center text-gray-500 py-12 h-full flex items-center justify-center flex-col">
+              <div className="text-4xl mb-3">💬</div>
+              <p className="text-lg font-medium">Start the conversation!</p>
+              <p className="text-sm mt-1">Send a message to get things rolling</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div
-                key={msg._id}
-                className={`flex ${msg.senderId === localUser?._id ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-xs px-4 py-2 rounded-lg ${
-                    msg.senderId === user._id
-                      ? 'bg-pink-500 text-white'
-                      : 'bg-gray-200 text-gray-800'
-                  }`}
-                >
-                  <p className="break-words">{msg.message}</p>
-                  <p className="text-xs opacity-70 mt-1">
-                    {new Date(msg.createdAt).toLocaleTimeString()}
-                  </p>
+            Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
+              <div key={dateKey}>
+                {/* Date Separator */}
+                <div className="flex items-center gap-3 my-6">
+                  <div className="flex-1 h-px bg-gray-300"></div>
+                  <span className="text-xs text-gray-500 font-medium px-3 py-1 bg-gray-50 rounded-full">
+                    {formatDateSeparator(dateKey)}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-300"></div>
+                </div>
+                
+                {/* Messages for this day */}
+                <div className="space-y-2">
+                  {dateMessages.map((msg) => (
+                    <div
+                      key={msg._id}
+                      className={`flex ${msg.senderId === localUser?._id ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`group flex items-end gap-2 max-w-sm ${msg.senderId === localUser?._id ? 'flex-row-reverse' : 'flex-row'}`}
+                      >
+                        {/* Message bubble */}
+                        <div
+                          className={`px-4 py-2 rounded-2xl shadow-sm transition ${
+                            msg.senderId === localUser?._id
+                              ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-tr-none'
+                              : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                          }`}
+                        >
+                          <p className="break-words text-sm md:text-base leading-relaxed">{msg.message}</p>
+                          <div className={`flex items-center gap-1 mt-1 text-xs ${msg.senderId === localUser?._id ? 'text-pink-100' : 'text-gray-500'}`}>
+                            <span>{formatMessageTime(msg.createdAt)}</span>
+                            {msg.senderId === localUser?._id && (
+                              msg.read ? (
+                                <FaCheckDouble size={12} className="text-blue-300" title="Read" />
+                              ) : (
+                                <FaCheck size={12} />
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))
           )}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
       {isMessagingDisabled && (
-        <div className="max-w-2xl mx-auto text-center text-xs md:text-sm text-red-500 py-2 px-4">
-          {otherBlockedYou ? 'This user has blocked you — you cannot send messages.' : 'You have blocked this user. Unblock them to send messages.'}
+        <div className="bg-red-50 border-t-2 border-red-200 text-center text-xs md:text-sm text-red-600 py-3 px-4 font-medium">
+          {otherBlockedYou ? '🚫 This user has blocked you — you cannot send messages.' : '🚫 You have blocked this user. Unblock them to send messages.'}
         </div>
       )}
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 p-3 md:p-4 fixed bottom-0 left-0 right-0 md:static">
+      <div className="bg-white border-t border-gray-200 p-3 md:p-4 fixed bottom-0 left-0 right-0 shadow-lg md:static z-40">
         <div className="max-w-2xl mx-auto">
           <form onSubmit={handleSendMessage} className="flex gap-2 relative">
             {/* Emoji Picker */}
