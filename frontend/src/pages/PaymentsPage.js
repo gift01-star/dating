@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaCheckCircle, FaTimesCircle, FaArrowLeft, FaCreditCard } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://frontend-i89x.onrender.com/api';
 
 export default function PaymentsPage({ user }) {
   const navigate = useNavigate();

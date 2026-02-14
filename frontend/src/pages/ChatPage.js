@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag, FaSmile, FaCheck, FaCheckDouble } from 'react-icons/fa';
 import getImageUrl from '../utils/imageUrl';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://frontend-i89x.onrender.com/api';
 
 // Format date/time helpers with error handling
 const formatMessageTime = (date) => {

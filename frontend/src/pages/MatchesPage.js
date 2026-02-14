@@ -5,7 +5,7 @@ import { FaArrowLeft, FaComments } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 import getImageUrl from '../utils/imageUrl';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://frontend-i89x.onrender.com/api';
 
 function MatchesPage({ user }) {
   const [matches, setMatches] = useState([]);
