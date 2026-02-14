@@ -217,32 +217,4 @@ router.put('/:matchId/read', verifyToken, async (req, res) => {
   }
 });
 
-// Get messages for a match
-router.get('/:matchId', verifyToken, async (req, res) => {
-  try {
-    const match = await Match.findOne({ _id: req.params.matchId });
-    if (!match) return res.status(404).json({ error: 'Match not found' });
-
-    const msgs = await Message.find({ matchId: req.params.matchId });
-
-    // Mark as read (persist using updateOne for in-memory DB compatibility)
-    for (const msg of msgs) {
-      if (String(msg.receiverId) === req.userId && !msg.read) {
-        msg.read = true;
-        msg.readAt = new Date();
-        // Persist change (use updateOne to work with both mongoose and in-memory DB)
-        try {
-          await Message.updateOne({ _id: msg._id }, { read: true, readAt: msg.readAt });
-        } catch (err) {
-          console.error('Error updating message read status', err);
-        }
-      }
-    }
-
-    res.json(msgs);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 export default router;

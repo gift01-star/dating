@@ -157,8 +157,6 @@ function ChatPage({ user }) {
       } catch (err) {
         console.error('Error fetching match info:', err);
       }
-      
-      setLoading(false);
     } catch (err) {
       const msg = err.response?.data?.error || '';
       const profileCompletion = err.response?.data?.profileCompletion;
@@ -172,6 +170,8 @@ function ChatPage({ user }) {
         return;
       }
       console.error('Error fetching messages:', err);
+    } finally {
+      setLoading(false);
     }
   };
 

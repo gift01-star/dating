@@ -186,7 +186,10 @@ router.post('/create-session', authenticate, async (req, res) => {
     }
 
     // Fallback: return a placeholder local success URL for test flows
-    const checkoutUrl = `${process.env.FRONTEND_URL}/payments/success?sessionId=${payment._id}`;
+    const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '') || '';
+    const checkoutUrl = baseUrl 
+      ? `${baseUrl}/payments?sessionId=${payment._id}`
+      : `/payments?sessionId=${payment._id}`;
 
     return res.json({ checkoutUrl, paymentId: payment._id });
   } catch (error) {

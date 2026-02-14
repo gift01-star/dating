@@ -311,9 +311,8 @@ export const User = usePostgres ? {
   // fallback to in-memory implementation (unchanged)
   let users = [];
   let idCounter = 1;
-
-  return {
-    findOne: async (query) => {
+  const userObj = {
+    findOne: async function(query) {
       return users.find(u => {
         if (query.email) return u.email === query.email;
         if (query._id) return u._id === query._id;
@@ -321,14 +320,18 @@ export const User = usePostgres ? {
       }) || null;
     },
 
-    findById: async (id) => users.find(u => u._id === id) || null,
+    findById: async function(id) {
+      return users.find(u => u._id === id) || null;
+    },
 
-    find: async (query = {}) => users.filter(u => {
-      if (query.verified !== undefined) return u.verified === query.verified;
-      return true;
-    }),
+    find: async function(query = {}) {
+      return users.filter(u => {
+        if (query.verified !== undefined) return u.verified === query.verified;
+        return true;
+      });
+    },
 
-    create: async (data) => {
+    create: async function(data) {
       const user = {
         _id: String(idCounter++),
         ...data,
@@ -360,7 +363,7 @@ export const User = usePostgres ? {
       return user;
     },
 
-    updateOne: async (query, data) => {
+    updateOne: async function(query, data) {
       const user = await this.findOne(query);
       if (!user) throw new Error('User not found');
       Object.assign(user, data);
@@ -368,7 +371,7 @@ export const User = usePostgres ? {
       return user;
     },
 
-    comparePassword: async (email, password) => {
+    comparePassword: async function(email, password) {
       console.log('[InMemory.comparePassword] Finding user with email:', email);
       const user = await this.findOne({ email });
       if (!user) {
@@ -385,6 +388,7 @@ export const User = usePostgres ? {
       return result;
     }
   };
+  return userObj;
 })();
 
 export const Match = usePostgres ? {
