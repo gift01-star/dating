@@ -154,7 +154,14 @@ router.get('/', verifyToken, async (req, res) => {
     });
 
     const result = await Promise.all(formattedMatches);
-    res.json(result.sort((a, b) => new Date(b.matchedAt) - new Date(a.matchedAt)));
+    // Sort by online status first (active users appear first), then by most recent
+    res.json(result.sort((a, b) => {
+      // Prioritize online users
+      if (a.user.isOnline && !b.user.isOnline) return -1;
+      if (!a.user.isOnline && b.user.isOnline) return 1;
+      // Then sort by most recent
+      return new Date(b.matchedAt) - new Date(a.matchedAt);
+    }));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -206,7 +213,14 @@ router.get('/likes', verifyToken, async (req, res) => {
       };
     }));
 
-    res.json({ likes: likesWithUsers });
+    // Sort by online status first, then by most recent likes
+    const sorted = likesWithUsers.sort((a, b) => {
+      if (a.user?.isOnline && !b.user?.isOnline) return -1;
+      if (!a.user?.isOnline && b.user?.isOnline) return 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    res.json({ likes: sorted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

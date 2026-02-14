@@ -27,7 +27,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photos, setPhotos] = useState(user?.photos || []);
   const [profileCompletion, setProfileCompletion] = useState(0);
-  const [activeTab, setActiveTab] = useState('profile'); // profile, photos, security
+  const [activeTab, setActiveTab] = useState('view'); // view, edit, photos, security
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
 
@@ -240,20 +240,30 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0 mb-6 border-b border-gray-200">
+          <div className="flex gap-0 mb-6 border-b border-gray-200 overflow-x-auto">
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`flex-1 py-3 font-semibold transition ${
-                activeTab === 'profile'
+              onClick={() => setActiveTab('view')}
+              className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
+                activeTab === 'view'
                   ? 'text-pink-600 border-b-2 border-pink-600'
                   : 'text-gray-600'
               }`}
             >
-              Basic Info
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab('edit')}
+              className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
+                activeTab === 'edit'
+                  ? 'text-pink-600 border-b-2 border-pink-600'
+                  : 'text-gray-600'
+              }`}
+            >
+              Edit Info
             </button>
             <button
               onClick={() => setActiveTab('photos')}
-              className={`flex-1 py-3 font-semibold transition ${
+              className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
                 activeTab === 'photos'
                   ? 'text-pink-600 border-b-2 border-pink-600'
                   : 'text-gray-600'
@@ -263,7 +273,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
             </button>
             <button
               onClick={() => setActiveTab('security')}
-              className={`flex-1 py-3 font-semibold transition ${
+              className={`px-4 py-3 font-semibold transition whitespace-nowrap ${
                 activeTab === 'security'
                   ? 'text-pink-600 border-b-2 border-pink-600'
                   : 'text-gray-600'
@@ -273,8 +283,87 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
             </button>
           </div>
 
+          {/* View Tab - Profile Overview */}
+          {activeTab === 'view' && (
+            <div className="space-y-6">
+              {/* Profile Overview Card */}
+              <div className="bg-gradient-to-r from-pink-100 to-orange-100 p-6 rounded-lg">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">{user?.name}</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Nickname</p>
+                    <p className="text-lg font-semibold text-gray-800">{user?.nickname || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Gender</p>
+                    <p className="text-lg font-semibold text-gray-800">{user?.gender || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Age</p>
+                    <p className="text-lg font-semibold text-gray-800">{user?.age || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">University</p>
+                    <p className="text-lg font-semibold text-gray-800">{user?.university || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Course</p>
+                    <p className="text-lg font-semibold text-gray-800">{user?.course || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Year</p>
+                    <p className="text-lg font-semibold text-gray-800">{user?.year || 'Not set'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bio Card */}
+              {user?.bio && (
+                <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+                  <h3 className="font-bold text-lg text-gray-800 mb-2">About Me</h3>
+                  <p className="text-gray-700">{user.bio}</p>
+                </div>
+              )}
+
+              {/* Interests Card */}
+              {user?.interests && user.interests.length > 0 && (
+                <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+                  <h3 className="font-bold text-lg text-gray-800 mb-3">Interests</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {user.interests.map((interest, idx) => (
+                      <span key={idx} className="bg-pink-200 text-pink-800 px-4 py-2 rounded-full text-sm font-medium">
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats Card */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-blue-100 to-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Relationship Goal</p>
+                  <p className="text-lg font-bold text-blue-900">{user?.relationshipGoal || 'Dating'}</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-100 to-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Member Since</p>
+                  <p className="text-lg font-bold text-green-900">
+                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Today'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('edit')}
+                className="w-full btn-primary py-3 text-lg font-semibold"
+              >
+                Edit Profile
+              </button>
+            </div>
+          )}
+
           {/* Profile Tab */}
-          {activeTab === 'profile' && (
+          {activeTab === 'edit' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

@@ -194,8 +194,12 @@ router.get('/conversations', verifyToken, requireCompleteProfile, async (req, re
       };
     }));
 
-    // Sort by last message date
+    // Sort by online status first, then by last message date
     conversations.sort((a, b) => {
+      // Prioritize online users
+      if (a.user?.isOnline && !b.user?.isOnline) return -1;
+      if (!a.user?.isOnline && b.user?.isOnline) return 1;
+      // Then sort by most recent message
       const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
       const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
       return bTime - aTime;
