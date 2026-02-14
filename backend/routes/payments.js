@@ -151,7 +151,7 @@ router.post('/create-session', authenticate, async (req, res) => {
     const paySecret = process.env.PAYCHANGU_SECRET;
     const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
-    if (paySecret && paySecret !== 'your_paychangu_secret_here') {
+    if (paySecret && paySecret !== 'SEC-TEST-n6Lrit76RMMNaXOHeum60HSKTQrKAUWe') {
       try {
         const response = await fetch(`${payApiBase}/v1/checkout/sessions`, {
           method: 'POST',
