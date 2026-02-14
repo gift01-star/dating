@@ -29,7 +29,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [photos, setPhotos] = useState(user?.photos || []);
   const [photoErrors, setPhotoErrors] = useState({});
   const [profileCompletion, setProfileCompletion] = useState(0);
-  const [activeTab, setActiveTab] = useState('view'); // view, edit, photos, security
+  const [activeTab, setActiveTab] = useState('view'); // view, edit, photos, security, premium
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
 
@@ -319,6 +319,16 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
               }`}
             >
               Security
+            </button>
+            <button
+              onClick={() => setActiveTab('premium')}
+              className={`px-4 py-3 font-semibold transition whitespace-nowrap flex items-center gap-2 ${
+                activeTab === 'premium'
+                  ? 'text-pink-600 border-b-2 border-pink-600'
+                  : 'text-gray-600'
+              }`}
+            >
+              <span>💎 Premium</span>
             </button>
           </div>
 
@@ -686,6 +696,106 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                   <li>✓ You can block anyone anytime</li>
                   <li>✓ Your data is never shared with third parties</li>
                 </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Premium Tab */}
+          {activeTab === 'premium' && (
+            <div className="space-y-6">
+              {/* Current Status */}
+              <div className={`p-6 rounded-lg border-2 ${user?.subscriptionActive ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300' : 'bg-gray-50 border-gray-300'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">💎 Premium Account</h3>
+                    <p className={`text-lg font-semibold ${user?.subscriptionActive ? 'text-green-600' : 'text-gray-600'}`}>
+                      {user?.subscriptionActive ? `🟢 Active (${user?.subscriptionPlan || 'Premium'})` : '⚪ Free Account'}
+                    </p>
+                  </div>
+                  {user?.subscriptionExpires && (
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Expires on:</p>
+                      <p className="text-lg font-semibold text-pink-600">
+                        {new Date(user.subscriptionExpires).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Features Comparison */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Free Features */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="font-bold text-blue-900 mb-4">Free Plan</h4>
+                  <ul className="space-y-2 text-blue-800 text-sm">
+                    <li>✓ Unlimited likes</li>
+                    <li>✓ See who likes you</li>
+                    <li>✓ Unlimited messages</li>
+                    <li>✓ Online status indicator</li>
+                    <li>✗ Advanced filters</li>
+                    <li>✗ Message read status</li>
+                    <li>✗ Profile boost</li>
+                  </ul>
+                </div>
+
+                {/* Premium Features */}
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg">
+                  <h4 className="font-bold text-purple-900 mb-4">⭐ Premium Plan</h4>
+                  <ul className="space-y-2 text-purple-800 text-sm font-medium">
+                    <li>✓ All Free features</li>
+                    <li>✓ Advanced filters</li>
+                    <li>✓ See message read status</li>
+                    <li>✓ Boost your profile</li>
+                    <li>✓ See who visited you</li>
+                    <li>✓ Priority support</li>
+                    <li>✓ 30-day subscription</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Upgrade Button */}
+              {!user?.subscriptionActive ? (
+                <div className="p-6 bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-lg shadow-lg text-center">
+                  <h4 className="text-xl font-bold mb-2">Ready to upgrade?</h4>
+                  <p className="text-sm mb-4 opacity-90">Unlock premium features and boost your dating experience!</p>
+                  <button
+                    onClick={() => navigate('/payments')}
+                    className="bg-white text-pink-600 font-bold px-8 py-3 rounded-lg hover:shadow-lg transition transform hover:scale-105"
+                  >
+                    🎯 Upgrade to Premium Now
+                  </button>
+                </div>
+              ) : (
+                <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg text-center">
+                  <h4 className="text-xl font-bold text-green-900 mb-2">✅ You're Premium!</h4>
+                  <p className="text-green-800 mb-4">Enjoy all the awesome premium features.</p>
+                  <button
+                    onClick={() => navigate('/payments')}
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded-lg transition"
+                  >
+                    View Subscriptions & Manage
+                  </button>
+                </div>
+              )}
+
+              {/* FAQ Section */}
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="font-bold text-gray-800 mb-3">❓ Frequently Asked Questions</h4>
+                <div className="space-y-3 text-sm text-gray-700">
+                  <div>
+                    <p className="font-semibold">Can I cancel anytime?</p>
+                    <p className="text-gray-600">Yes! Cancel your subscription anytime from the payments page.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Is there a free trial?</p>
+                    <p className="text-gray-600">Start with our free plan and upgrade when you're ready!</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">What payment methods are accepted?</p>
+                    <p className="text-gray-600">We accept all major credit cards and mobile money via Paychangu.</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

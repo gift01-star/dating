@@ -217,21 +217,26 @@ router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
     });
 
     const likesWithUsers = await Promise.all(likesReceived.map(async (like) => {
-      const user = await User.findById(like.user1);
-      const userObj = user ? user.toJSON() : null;
+      try {
+        const user = await User.findById(like.user1);
+        const userObj = user ? user.toJSON() : null;
 
-      // Compute online status: active flag + recent activity within 5 minutes
-      if (userObj) {
-        const FIVE_MIN = 5 * 60 * 1000;
-        const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
-        userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+        // Compute online status: active flag + recent activity within 5 minutes
+        if (userObj) {
+          const FIVE_MIN = 5 * 60 * 1000;
+          const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+          userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+        }
+
+        return {
+          ...like.toJSON(),
+          user: userObj
+        };
+      } catch (err) {
+        console.error('Error processing like:', err);
+        return null;
       }
-
-      return {
-        ...like.toJSON(),
-        user: userObj
-      };
-    }));
+    })).then(results => results.filter(Boolean));
 
     // Sort by online status first, then by most recent likes
     const sorted = likesWithUsers.sort((a, b) => {

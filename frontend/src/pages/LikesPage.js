@@ -42,13 +42,24 @@ function LikesPage({ user }) {
   const fetchLikes = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
       const response = await axios.get(`${API_URL}/matches/likes`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setLikes(response.data.likes || []);
+      const likesData = Array.isArray(response.data.likes) ? response.data.likes : (response.data || []);
+      setLikes(likesData);
       setError('');
     } catch (err) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Failed to load likes');
       console.error('Error fetching likes:', err);
     } finally {

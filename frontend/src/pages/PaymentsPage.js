@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaCheckCircle, FaTimesCircle, FaArrowLeft, FaCreditCard } from 'react-icons/fa';
@@ -13,6 +13,14 @@ export default function PaymentsPage({ user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Check authentication
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token || !user) {
+      navigate('/login');
+    }
+  }, []);
 
   const sessionId = searchParams.get('sessionId');
 

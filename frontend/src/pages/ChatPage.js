@@ -6,50 +6,91 @@ import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Format date/time helpers
+// Format date/time helpers with error handling
 const formatMessageTime = (date) => {
-  const now = new Date();
-  const msgDate = new Date(date);
-  const isToday = now.toDateString() === msgDate.toDateString();
-  const isYesterday = new Date(now.getTime() - 86400000).toDateString() === msgDate.toDateString();
-  
-  if (isToday) {
-    return msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  } else if (isYesterday) {
-    return 'Yesterday ' + msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  } else {
-    return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + 
-           msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  try {
+    if (!date) return 'Just now';
+    
+    const msgDate = new Date(date);
+    // Check if date is invalid
+    if (isNaN(msgDate.getTime())) {
+      return 'Just now';
+    }
+    
+    const now = new Date();
+    const isToday = now.toDateString() === msgDate.toDateString();
+    const isYesterday = new Date(now.getTime() - 86400000).toDateString() === msgDate.toDateString();
+    
+    if (isToday) {
+      return msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    } else if (isYesterday) {
+      return 'Yesterday ' + msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    } else {
+      return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + 
+             msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+  } catch (err) {
+    console.error('Error formatting message time:', err);
+    return 'Just now';
   }
 };
 
 const formatDateSeparator = (date) => {
-  const msgDate = new Date(date);
-  const now = new Date();
-  const isToday = now.toDateString() === msgDate.toDateString();
-  const isYesterday = new Date(now.getTime() - 86400000).toDateString() === msgDate.toDateString();
-  
-  if (isToday) {
+  try {
+    if (!date) return 'Today';
+    
+    const msgDate = new Date(date);
+    // Check if date is invalid
+    if (isNaN(msgDate.getTime())) {
+      return 'Today';
+    }
+    
+    const now = new Date();
+    const isToday = now.toDateString() === msgDate.toDateString();
+    const isYesterday = new Date(now.getTime() - 86400000).toDateString() === msgDate.toDateString();
+    
+    if (isToday) {
+      return 'Today';
+    } else if (isYesterday) {
+      return 'Yesterday';
+    } else {
+      return msgDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: msgDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }
+  } catch (err) {
+    console.error('Error formatting date separator:', err);
     return 'Today';
-  } else if (isYesterday) {
-    return 'Yesterday';
-  } else {
-    return msgDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: msgDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
   }
 };
 
-// Group messages by date
+// Group messages by date with error handling
 const groupMessagesByDate = (messages) => {
   const grouped = {};
   
+  if (!Array.isArray(messages)) {
+    return grouped;
+  }
+  
   messages.forEach(msg => {
-    const date = new Date(msg.createdAt);
-    const dateKey = date.toDateString();
-    
-    if (!grouped[dateKey]) {
-      grouped[dateKey] = [];
+    try {
+      if (!msg || !msg.createdAt) return;
+      
+      const date = new Date(msg.createdAt);
+      if (isNaN(date.getTime())) {
+        // If date is invalid, use current date as fallback
+        const todayKey = new Date().toDateString();
+        if (!grouped[todayKey]) grouped[todayKey] = [];
+        grouped[todayKey].push(msg);
+        return;
+      }
+      
+      const dateKey = date.toDateString();
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(msg);
+    } catch (err) {
+      console.error('Error grouping message:', err);
     }
-    grouped[dateKey].push(msg);
   });
   
   return grouped;
