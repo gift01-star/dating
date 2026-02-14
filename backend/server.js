@@ -382,6 +382,24 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running', timestamp: new Date() });
 });
 
+// Debug: List all users (for development only)
+app.get('/api/debug/users', async (req, res) => {
+  try {
+    const allUsers = await User.find({});
+    res.json({ 
+      count: allUsers.length,
+      users: allUsers.map(u => ({
+        _id: u._id,
+        email: u.email,
+        name: u.name,
+        hasPasswordHash: !!u.passwordHash
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DB status endpoint for debugging Postgres persistence
 app.get('/api/db-status', async (req, res) => {
   try {

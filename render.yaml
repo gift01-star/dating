@@ -8,19 +8,23 @@ services:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        fromQuery: JWT_SECRET
-      - key: MONGODB_URI
-        fromQuery: MONGODB_URI
+        value: your-secret-key-here-change-in-production
       - key: FRONTEND_URL
-        value: https://dating-zujg.onrender.com
+        fromQuery: FRONTEND_URL
+      - key: BACKEND_URL
+        fromQuery: BACKEND_URL
+      - key: PAYMENTS_ENABLED
+        value: "false"
       - key: PORT
-        value: 5000
+        value: "5000"
 
   - type: web
     name: edulove-frontend
     runtime: node
     buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm install && npm run start:prod
+    startCommand: cd frontend && npx serve -s build -l 3000
     envVars:
       - key: REACT_APP_API_URL
-        value: https://dating-zujg.onrender.com
+        fromQuery: API_URL
+      - key: NODE_ENV
+        value: production

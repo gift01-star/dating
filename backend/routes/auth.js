@@ -78,6 +78,7 @@ router.post('/login', async (req, res) => {
     let { email, password } = req.body;
 
     if (!email || !password) {
+      console.log('[Login] Missing email or password');
       return res.status(400).json({ error: 'Email and password required' });
     }
 
@@ -87,6 +88,12 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       console.log('[Login] User not found for email:', email);
+      // Get count of all users for debugging
+      const allUsers = await User.find({});
+      console.log('[Login] Total users in DB:', allUsers.length);
+      if (allUsers.length > 0) {
+        console.log('[Login] Existing users:', allUsers.map(u => u.email).join(', '));
+      }
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -127,6 +134,7 @@ router.post('/login', async (req, res) => {
       isOnline
     };
 
+    console.log('[Login] Returning token and user data');
     res.json({
       message: 'Login successful',
       token,
