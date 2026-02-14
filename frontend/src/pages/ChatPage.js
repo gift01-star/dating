@@ -248,7 +248,6 @@ function ChatPage({ user }) {
             </div>
           )}
         </div>
-        </div>
       </div>
 
       {/* Messages */}
