@@ -88,6 +88,7 @@ async function ensureTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active TIMESTAMP DEFAULT now();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetToken" TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetExpires" TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 
 
 
@@ -224,10 +225,38 @@ export const User = usePostgres ? {
     const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
     const passwordHash = await hashPassword(data.password || data.passwordHash || '');
     const photos = JSON.stringify(data.photos || []);
-    // Use camelCase column names to match table created by ensureTables()
-    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, location, gender, dob, age, profileimage, "relationshipGoal")
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
-    `, [id, data.name || '', data.email || '', passwordHash, data.nickname || '', photos, data.verified || false, data.messagesUnlocked || false, JSON.stringify(data.unlockedMatches || []), data.subscriptionActive || false, data.subscriptionPlan || null, JSON.stringify(data.blocked || []), JSON.stringify(data.interests || []), data.bio || '', data.university || '', data.course || '', data.location || '', data.gender || '', data.dob ? new Date(data.dob) : null, data.age || 0, data.profileImage || '', data.relationshipGoal || 'Dating']);
+    // Use snake_case column names to match table created by ensureTables()
+    await pool.query(`INSERT INTO users(id, name, email, password_hash, nickname, photos, verified, messages_unlocked, unlocked_matches, subscription_active, subscription_plan, created_at, last_active, blocked, interests, bio, university, course, location, gender, dob, age, profileimage, "relationshipGoal", height, "bodyType", year, active, "profileCompletion")
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+    `, [
+      id, 
+      data.name || '', 
+      data.email || '', 
+      passwordHash, 
+      data.nickname || '', 
+      photos, 
+      data.verified || false, 
+      data.messagesUnlocked || false, 
+      JSON.stringify(data.unlockedMatches || []), 
+      data.subscriptionActive || false, 
+      data.subscriptionPlan || null, 
+      JSON.stringify(data.blocked || []), 
+      JSON.stringify(data.interests || []), 
+      data.bio || '', 
+      data.university || '', 
+      data.course || '', 
+      data.location || '', 
+      data.gender || '', 
+      data.dob ? new Date(data.dob) : null, 
+      data.age || 0, 
+      data.profileImage || '', 
+      data.relationshipGoal || 'Dating',
+      data.height || 0,
+      data.bodyType || '',
+      data.year || '',
+      data.active !== undefined ? data.active : true,
+      data.profileCompletion || 0
+    ]);
 
     // invalidate cache for this email if present
     try { await cache.del(`user:email:${String(data.email).toLowerCase()}`); } catch (err) { /* ignore */ }
@@ -263,8 +292,10 @@ export const User = usePostgres ? {
       if (k === 'passwordHash') k = 'password_hash';
       if (k === 'resetToken') k = 'reset_token';
       if (k === 'resetExpires') k = 'reset_expires';
+      if (k === 'unlockedMatches') k = 'unlocked_matches';
+      if (k === 'profileCompletion') k = '"profileCompletion"';
 
-      if (k === 'photos' || k === 'unlockedMatches' || k === 'blocked' || k === 'interests') val = JSON.stringify(val || []);
+      if (k === 'photos' || k === 'unlockedMatches' || k === 'unlocked_matches' || k === 'blocked' || k === 'interests') val = JSON.stringify(val || []);
       if (k === 'password') {
         val = await hashPassword(val);
         k = 'password_hash';
@@ -336,26 +367,45 @@ export const User = usePostgres ? {
         _id: String(idCounter++),
         ...data,
         passwordHash: await hashPassword(data.password),
-        verified: false,
-        messagesUnlocked: false,
-        freeMessagesRemaining: 2,
-        unlockedMatches: [],
-        subscriptionActive: false,
-        subscriptionPlan: null,
-        subscriptionExpires: null,
-        resetToken: null,
-        resetExpires: null,
-        createdAt: new Date(),
-        lastActive: new Date(),
-        blocked: [],
-        interests: [],
-        bio: '',
-        university: '',
-        course: '',
-        gender: '',
-        age: 0,
-        profileImage: '',
+        // Core fields
+        email: (data.email || '').toLowerCase(),
+        name: data.name || '',
+        nickname: data.nickname || '',
+        // Profile fields
+        gender: data.gender || '',
+        dob: data.dob || null,
+        location: data.location || '',
+        height: data.height || 0,
+        bodyType: data.bodyType || '',
+        university: data.university || '',
+        course: data.course || '',
+        year: data.year || '',
+        // Interests and bio
+        interests: data.interests || [],
+        bio: data.bio || '',
+        // Photos and verification
+        photos: data.photos || [],
+        verified: data.verified || false,
+        // Subscription and messaging
+        messagesUnlocked: data.messagesUnlocked || false,
+        freeMessagesRemaining: data.freeMessagesRemaining || 2,
+        unlockedMatches: data.unlockedMatches || [],
+        subscriptionActive: data.subscriptionActive || false,
+        subscriptionPlan: data.subscriptionPlan || null,
+        subscriptionExpires: data.subscriptionExpires || null,
+        // Blocking and relationships
+        blocked: data.blocked || [],
         relationshipGoal: data.relationshipGoal || 'Dating',
+        // Status and timestamps
+        active: data.active !== undefined ? data.active : true,
+        lastActive: data.lastActive || new Date(),
+        createdAt: data.createdAt || new Date(),
+        updatedAt: data.updatedAt || new Date(),
+        // Profile completion
+        profileCompletion: data.profileCompletion || 0,
+        // Password reset
+        resetToken: data.resetToken || null,
+        resetExpires: data.resetExpires || null,
         toJSON: function() { const { passwordHash, ...rest } = this; return rest; }
       };
       delete user.password;

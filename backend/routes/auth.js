@@ -35,7 +35,24 @@ router.post('/register', async (req, res) => {
       name,
       email,
       password,
-      relationshipGoal: relationshipGoal || 'Dating'
+      relationshipGoal: relationshipGoal || 'Dating',
+      // Initialize all profile fields to match users.js structure
+      nickname: '',
+      gender: '',
+      dob: null,
+      location: '',
+      height: 0,
+      bodyType: '',
+      university: '',
+      course: '',
+      year: '',
+      interests: [],
+      bio: '',
+      photos: [],
+      blocked: [],
+      profileCompletion: 0,
+      active: true,
+      lastActive: new Date()
     });
 
     console.log('[Register] User created successfully:', user._id);
@@ -86,16 +103,34 @@ router.post('/login', async (req, res) => {
     }
 
     console.log('[Login] Login successful for:', email);
-    await User.updateOne({ email }, { lastActive: new Date() });
+    
+    // Update lastActive and active status
+    await User.updateOne({ email }, { 
+      lastActive: new Date(),
+      active: true
+    });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
+    // Fetch fresh user data with all fields to match users.js structure
+    const freshUser = await User.findOne({ email });
+
+    const token = jwt.sign({ id: freshUser._id }, process.env.JWT_SECRET || 'secret', {
       expiresIn: process.env.JWT_EXPIRE || '7d'
     });
+
+    // Calculate online status (active + recent activity within 5 minutes)
+    const FIVE_MIN = 5 * 60 * 1000;
+    const lastActive = freshUser.lastActive ? new Date(freshUser.lastActive).getTime() : 0;
+    const isOnline = !!(freshUser.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+
+    const userWithOnlineStatus = {
+      ...freshUser.toJSON(),
+      isOnline
+    };
 
     res.json({
       message: 'Login successful',
       token,
-      user: user.toJSON()
+      user: userWithOnlineStatus
     });
   } catch (error) {
     console.error('[Login] Error:', error.stack || error.message || error);
