@@ -14,6 +14,7 @@ router.post('/register', async (req, res) => {
     }
 
     email = email.toLowerCase();
+    console.log('[Register] Registering user:', email);
 
     if (password !== confirmPassword) {
       return res.status(400).json({ error: 'Passwords do not match' });
@@ -29,12 +30,15 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
+    console.log('[Register] Creating user with email:', email);
     const user = await User.create({
       name,
       email,
       password,
       relationshipGoal: relationshipGoal || 'Dating'
     });
+
+    console.log('[Register] User created successfully:', user._id);
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
       expiresIn: process.env.JWT_EXPIRE || '7d'
@@ -46,6 +50,7 @@ router.post('/register', async (req, res) => {
       user: user.toJSON()
     });
   } catch (error) {
+    console.error('[Register] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -60,20 +65,29 @@ router.post('/login', async (req, res) => {
     }
 
     email = email.toLowerCase();
+    console.log('[Login] Attempting to find user with email:', email);
+    
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('[Login] User not found for email:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log('[Login] User found:', user.name, '- Checking password...');
 
     // database.js exports a comparePassword helper; it works whether using
     // the postgres wrapper or in-memory fallback.  Previously the code
     // attempted to call `user.comparePassword`, which doesn't exist for
     // plain objects and resulted in errors.  Use the User-level helper.
     const isPasswordValid = await User.comparePassword(email, password);
+    console.log('[Login] Password valid:', isPasswordValid);
+    
     if (!isPasswordValid) {
+      console.log('[Login] Invalid password for user:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('[Login] Login successful for:', email);
     await User.updateOne({ email }, { lastActive: new Date() });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
@@ -86,6 +100,7 @@ router.post('/login', async (req, res) => {
       user: user.toJSON()
     });
   } catch (error) {
+    console.error('[Login] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });

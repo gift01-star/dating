@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag } from 'react-icons/fa';
+import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag, FaSmile } from 'react-icons/fa';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -11,6 +11,7 @@ function ChatPage({ user }) {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [matchInfo, setMatchInfo] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const navigate = useNavigate();
 
   // Keep a local copy of the user so we can update blocked/unblocked state locally
@@ -176,78 +177,77 @@ function ChatPage({ user }) {
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-pink-50 to-orange-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/matches')}
-              className="text-pink-500 hover:text-pink-600"
-            >
-              <FaArrowLeft size={24} />
-            </button>
-            {matchInfo?.user && (
-              <div className="flex items-center gap-3">
-                {matchInfo.user.photos && matchInfo.user.photos.length > 0 ? (
-                  <div className="relative">
-                    <img
-                      src={matchInfo.user.photos[0].url}
-                      alt={matchInfo.user.name}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    {matchInfo.user.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-pink-300 flex items-center justify-center text-white font-bold relative">
-                    {(matchInfo.user.name || 'U').charAt(0).toUpperCase()}
-                    {matchInfo.user.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                    )}
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <div>
-                    <h1 className="text-lg font-bold text-gray-800">
-                      {matchInfo.user.nickname || matchInfo.user.name}
-                    </h1>
-                    <p className="text-xs text-gray-500">
-                      {matchInfo.user.university || ''}
-                    </p>
-                  </div>
-
-                  {/* Block / Unblock & Report actions */}
-                  <div className="ml-4 flex items-center gap-2">
-                    {youBlockedOther ? (
-                      <button
-                        onClick={() => handleUnblockUser(String(matchInfo.user._id))}
-                        title="Unblock user"
-                        className="text-green-600 hover:text-green-700 p-2 rounded"
-                      >
-                        Unblock
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleBlockUser(String(matchInfo.user._id))}
-                        title="Block user"
-                        className="text-red-500 hover:text-red-600 p-2 rounded"
-                      >
-                        <FaBan />
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleReportUser(String(matchInfo.user._id))}
-                      title="Report user"
-                      className="text-yellow-600 hover:text-yellow-700 p-2 rounded"
-                    >
-                      <FaFlag />
-                    </button>
-                  </div>
+      <div className="bg-white border-b border-gray-200 p-3 md:p-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2 md:gap-4 overflow-hidden">
+          <button
+            onClick={() => navigate('/matches')}
+            className="text-pink-500 hover:text-pink-600 transition p-2 rounded-lg hover:bg-pink-100 flex-shrink-0"
+            title="Back"
+          >
+            <FaArrowLeft size={20} />
+          </button>
+          {matchInfo?.user && (
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+              {matchInfo.user.photos && matchInfo.user.photos.length > 0 ? (
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={matchInfo.user.photos[0].url}
+                    alt={matchInfo.user.name}
+                    className="w-8 md:w-10 h-8 md:h-10 rounded-full object-cover"
+                  />
+                  {matchInfo.user.isOnline && (
+                    <div className="absolute bottom-0 right-0 w-2 md:w-3 h-2 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                  )}
                 </div>
+              ) : (
+                <div className="w-8 md:w-10 h-8 md:h-10 rounded-full bg-pink-300 flex items-center justify-center text-white font-bold text-sm md:text-base relative flex-shrink-0">
+                  {(matchInfo.user.name || 'U').charAt(0).toUpperCase()}
+                  {matchInfo.user.isOnline && (
+                    <div className="absolute bottom-0 right-0 w-2 md:w-3 h-2 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                  )}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h1 className="text-base md:text-lg font-bold text-gray-800 truncate">
+                  {matchInfo.user.nickname || matchInfo.user.name}
+                </h1>
+                <p className="text-xs text-gray-500 truncate">
+                  {matchInfo.user.university || ''}
+                </p>
               </div>
-            )}
-          </div>
+
+              {/* Block / Unblock & Report actions */}
+              <div className="ml-2 md:ml-4 flex items-center gap-1 md:gap-2 flex-shrink-0">
+                {youBlockedOther ? (
+                  <button
+                    onClick={() => handleUnblockUser(String(matchInfo.user._id))}
+                    title="Unblock user"
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2 rounded text-sm font-medium transition"
+                  >
+                    <span className="hidden md:inline">Unblock</span>
+                    <span className="md:hidden">✓</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleBlockUser(String(matchInfo.user._id))}
+                    title="Block user"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 p-2 rounded transition"
+                  >
+                    <FaBan size={18} />
+                  </button>
+                )}
+
+                <button
+                  onClick={() => handleReportUser(String(matchInfo.user._id))}
+                  title="Report user"
+                  className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-2 rounded transition"
+                >
+                  <FaFlag size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
@@ -283,29 +283,64 @@ function ChatPage({ user }) {
       </div>
 
       {isMessagingDisabled && (
-        <div className="max-w-2xl mx-auto text-center text-sm text-red-500 py-2">
+        <div className="max-w-2xl mx-auto text-center text-xs md:text-sm text-red-500 py-2 px-4">
           {otherBlockedYou ? 'This user has blocked you — you cannot send messages.' : 'You have blocked this user. Unblock them to send messages.'}
         </div>
       )}
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 p-4">
+      <div className="bg-white border-t border-gray-200 p-3 md:p-4 fixed bottom-0 left-0 right-0 md:static">
         <div className="max-w-2xl mx-auto">
-          <form onSubmit={handleSendMessage} className="flex gap-2">
+          <form onSubmit={handleSendMessage} className="flex gap-2 relative">
+            {/* Emoji Picker */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="bg-pink-500 hover:bg-pink-600 text-white px-2 md:px-3 py-2 rounded transition flex items-center gap-1 text-sm md:text-base"
+                title="Add emoji"
+              >
+                <FaSmile size={16} />
+              </button>
+              
+              {showEmojiPicker && (
+                <div className="absolute bottom-12 left-0 bg-white border border-gray-300 rounded-lg shadow-lg p-2 z-50 w-64 md:w-80">
+                  <div className="grid grid-cols-8 gap-1">
+                    {['😀', '😂', '😍', '🎉', '👍', '❤️', '🔥', '✨', '💯', '🙌', '😎', '😡', '😢', '🤔', '😴', '🚀', '💻', '📱', '🎮', '🎵', '⚽', '🍕', '🌟', '☀️', '🌙', '🎂', '🍰', '🎊'].map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setMessage(message + emoji);
+                          setShowEmojiPicker(false);
+                        }}
+                        className="text-xl md:text-2xl p-1 hover:bg-gray-100 rounded cursor-pointer transition"
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={isMessagingDisabled ? 'Messaging not available' : 'Type a message...'}
-              className="input-field flex-1"
+              placeholder={isMessagingDisabled ? 'Messaging unavailable' : 'Type a message... 😊'}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm md:text-base"
               disabled={isMessagingDisabled}
             />
             <button
               type="submit"
-              className={`btn-primary flex items-center gap-2 ${isMessagingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`bg-pink-500 hover:bg-pink-600 text-white px-2 md:px-4 py-2 rounded transition flex items-center gap-1 text-sm md:text-base font-medium ${isMessagingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isMessagingDisabled}
+              title="Send"
             >
-              <FaPaperPlane /> Send
+              <FaPaperPlane size={16} />
+              <span className="hidden md:inline">Send</span>
             </button>
           </form>
         </div>

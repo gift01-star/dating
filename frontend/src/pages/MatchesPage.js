@@ -45,39 +45,41 @@ function MatchesPage({ user }) {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 p-4 pb-24">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 mt-4">
-          <button
-            onClick={() => navigate('/discover')}
-            className="text-pink-500 hover:text-pink-600"
-          >
-            <FaArrowLeft size={24} />
-          </button>
-          <h1 className="text-3xl font-bold text-gray-800">Matches</h1>
-          <button
-            onClick={() => navigate('/profile')}
-            className="text-pink-500 hover:text-pink-600 text-2xl"
-          >
-            👤
-          </button>
-        </div>
-
-        {/* Matches List */}
-        {matches.length === 0 ? (
-          <div className="card text-center">
-            <p className="text-gray-600 text-lg mb-4">No matches yet</p>
-            <p className="text-gray-500 mb-6">Start swiping to find your match!</p>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 p-3 md:p-4 pb-24">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6 md:mb-8 mt-2 md:mt-4 gap-2">
             <button
               onClick={() => navigate('/discover')}
-              className="btn-primary"
+              className="text-pink-500 hover:text-pink-600 transition p-2 rounded-lg hover:bg-pink-100 flex-shrink-0"
+              title="Back"
             >
-              Start Discovering
+              <FaArrowLeft size={24} />
+            </button>
+            <h1 className="text-xl md:text-3xl font-bold text-gray-800 flex-1">Matches</h1>
+            <button
+              onClick={() => navigate('/profile')}
+              className="text-pink-500 hover:text-pink-600 transition px-3 py-2 rounded-lg hover:bg-pink-100 flex-shrink-0 text-sm md:text-base font-medium"
+              title="View profile"
+            >
+              👤
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* Matches List */}
+          {matches.length === 0 ? (
+            <div className="card text-center">
+              <p className="text-gray-600 text-base md:text-lg mb-4">No matches yet</p>
+              <p className="text-gray-500 mb-6 text-sm md:text-base">Start swiping to find your match!</p>
+              <button
+                onClick={() => navigate('/discover')}
+                className="btn-primary"
+              >
+                Start Discovering
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {matches.map((match) => (
               <div key={match._id} className="card overflow-hidden hover:shadow-xl transition">
                 {/* Photo */}

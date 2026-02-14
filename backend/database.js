@@ -281,9 +281,21 @@ export const User = usePostgres ? {
 
   async comparePassword(email, password) {
     const normalized = String(email).toLowerCase();
+    console.log('[DB.comparePassword] Comparing password for:', normalized);
     const user = await this.findOne({ email: normalized });
-    if (!user) return false;
-    return comparePassword(password, user.password_hash || user.passwordHash || '');
+    if (!user) {
+      console.log('[DB.comparePassword] User not found');
+      return false;
+    }
+    console.log('[DB.comparePassword] User found, comparing password.');
+    const hash = user.password_hash || user.passwordHash;
+    if (!hash) {
+      console.log('[DB.comparePassword] No password hash found on user!');
+      return false;
+    }
+    const result = await comparePassword(password, hash);
+    console.log('[DB.comparePassword] Comparison result:', result);
+    return result;
   }
 } : (function(){
   // fallback to in-memory implementation (unchanged)
@@ -345,9 +357,20 @@ export const User = usePostgres ? {
     },
 
     comparePassword: async (email, password) => {
+      console.log('[InMemory.comparePassword] Finding user with email:', email);
       const user = await this.findOne({ email });
-      if (!user) return false;
-      return comparePassword(password, user.passwordHash);
+      if (!user) {
+        console.log('[InMemory.comparePassword] User not found');
+        return false;
+      }
+      console.log('[InMemory.comparePassword] User found, has passwordHash:', !!user.passwordHash);
+      if (!user.passwordHash) {
+        console.log('[InMemory.comparePassword] ERROR: No passwordHash on user!');
+        return false;
+      }
+      const result = await comparePassword(password, user.passwordHash);
+      console.log('[InMemory.comparePassword] Result:', result);
+      return result;
     }
   };
 })();

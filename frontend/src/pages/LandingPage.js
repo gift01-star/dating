@@ -230,7 +230,7 @@ function LandingPage() {
               <ul className="space-y-2 text-gray-400">
                 <li><button onClick={() => navigate('/terms')} className="hover:text-white transition text-left">Terms & Conditions</button></li>
                 <li><a href="https://github.com/gift01-star/dating/blob/main/docs/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Privacy Policy</a></li>
-                <li><a href="https://github.com/gift01-star/dating/blob/main/docs/COMMUNITY_GUIDELINES.md" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Community Guidelines</a></li>
+                <li><button onClick={() => navigate('/guidelines')} className="hover:text-white transition text-left">Community Guidelines</button></li>
               </ul>
             </div>
 

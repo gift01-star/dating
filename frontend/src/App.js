@@ -12,6 +12,7 @@ import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/AdminDashboard';
 import TermsPage from './pages/TermsPage';
+import CommunityGuidelinesPage from './pages/CommunityGuidelinesPage';
 import LikesPage from './pages/LikesPage';
 import MessagesPage from './pages/MessagesPage';
 import PaymentsPage from './pages/PaymentsPage';
@@ -89,6 +90,7 @@ function App() {
         <Route path="/login" element={!isAuthenticated ? <LoginPage setIsAuthenticated={setIsAuthenticated} setUser={setUser} /> : <Navigate to="/discover" />} />
         <Route path="/register" element={!isAuthenticated ? <RegisterPage setIsAuthenticated={setIsAuthenticated} setUser={setUser} /> : <Navigate to="/discover" />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/guidelines" element={<CommunityGuidelinesPage />} />
         <Route path="/reset" element={<PasswordResetRequestPage />} />
         <Route path="/reset/:token" element={<PasswordResetPage />} />
 

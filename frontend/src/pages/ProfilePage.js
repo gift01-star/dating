@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaSignOutAlt, FaTrash, FaCamera, FaClock, FaShieldAlt } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
+import LogoutConfirmDialog from '../components/LogoutConfirmDialog';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -27,6 +28,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [photos, setPhotos] = useState(user?.photos || []);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [activeTab, setActiveTab] = useState('profile'); // profile, photos, security
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
 
   // Calculate profile completion percentage
@@ -145,6 +147,11 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
 
   // Centralized logout: prefer App-provided handler, otherwise fallback to local logout
   const performLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false);
     if (typeof handleLogoutProp === 'function') {
       try {
         handleLogoutProp();
@@ -158,6 +165,10 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
     // Fallback local logout
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const handleCancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   // For compatibility, expose the App-level handler globally if provided
@@ -176,24 +187,26 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 p-4 pb-24">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 mt-4">
-          <button
-            onClick={() => navigate('/discover')}
-            className="text-pink-500 hover:text-pink-600"
-          >
-            <FaArrowLeft size={24} />
-          </button>
-          <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
-          <button
-            onClick={performLogout}
-            className="text-pink-500 hover:text-pink-600"
-            title="Logout"
-          >
-            <FaSignOutAlt size={24} />
-          </button>
-        </div>
+        <div className="max-w-2xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8 mt-4">
+            <button
+              onClick={() => navigate('/discover')}
+              className="text-pink-500 hover:text-pink-600 transition p-2 rounded-lg hover:bg-pink-100"
+              title="Back"
+            >
+              <FaArrowLeft size={24} />
+            </button>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">My Profile</h1>
+            <button
+              onClick={performLogout}
+              className="bg-red-500 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg transition font-medium flex items-center gap-2 text-sm md:text-base"
+              title="Logout"
+            >
+              <FaSignOutAlt size={18} />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
 
         {/* Form */}
         <div className="card">
@@ -523,6 +536,12 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
         </div>
       </div>
       </div>
+
+      <LogoutConfirmDialog 
+        isOpen={showLogoutConfirm}
+        onConfirm={handleConfirmLogout}
+        onCancel={handleCancelLogout}
+      />
 
       <BottomNavBar user={user} />
     </>
