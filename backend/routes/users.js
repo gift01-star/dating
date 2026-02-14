@@ -220,7 +220,7 @@ router.post('/photos', verifyToken, async (req, res) => {
       user.photos = user.photos.slice(-5);
     }
 
-    await user.save();
+    await User.updateOne({ _id: req.userId }, { photos: user.photos });
 
     // Update profileCompletion after photo change
     const completionFields = [
@@ -264,7 +264,7 @@ router.delete('/photos/:photoId', verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     user.photos = user.photos.filter(p => p._id.toString() !== req.params.photoId);
-    await user.save();
+    await User.updateOne({ _id: req.userId }, { photos: user.photos });
 
     // Update profileCompletion after photo change
     const completionFields = [

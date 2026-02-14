@@ -119,10 +119,9 @@ router.post('/request-reset', async (req, res) => {
 
     const crypto = await import('crypto');
     const token = crypto.randomBytes(20).toString('hex');
-    user.resetToken = token;
-    user.resetExpires = new Date(Date.now() + 3600000); // 1 hour
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
 
-    await user.save();
+    await User.updateOne({ email }, { resetToken: token, resetExpires });
 
     const resetLink = `${process.env.FRONTEND_URL || 'https://frontend-i89x.onrender.com'}/reset/${token}`;
 
@@ -144,13 +143,17 @@ router.post('/reset', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters and include letters and numbers' });
     }
 
-    const user = await User.findOne({ resetToken: token, resetExpires: { $gt: new Date() } });
+    // Find all users and check for valid reset token (since findOne doesn't support complex operators)
+    const users = await User.find();
+    const user = users.find(u => u.resetToken === token && u.resetExpires && new Date(u.resetExpires) > new Date());
+    
     if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
 
-    user.password = newPassword;
-    user.resetToken = undefined;
-    user.resetExpires = undefined;
-    await user.save();
+    await User.updateOne({ _id: user._id }, { 
+      password: newPassword,
+      resetToken: null,
+      resetExpires: null
+    });
 
     res.json({ message: 'Password reset successful' });
   } catch (error) {

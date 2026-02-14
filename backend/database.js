@@ -23,6 +23,12 @@ function wrapRow(row) {
   if (row.createdAt && !obj.created_at) obj.created_at = row.createdAt;
   if (row.last_active && !obj.lastActive) obj.lastActive = row.last_active;
   if (row.lastActive && !obj.last_active) obj.last_active = row.lastActive;
+  if (row.matched_at && !obj.matchedAt) obj.matchedAt = row.matched_at;
+  if (row.matchedAt && !obj.matched_at) obj.matched_at = row.matchedAt;
+  if (row.reset_token && !obj.resetToken) obj.resetToken = row.reset_token;
+  if (row.resetToken && !obj.reset_token) obj.reset_token = row.resetToken;
+  if (row.reset_expires && !obj.resetExpires) obj.resetExpires = row.reset_expires;
+  if (row.resetExpires && !obj.reset_expires) obj.reset_expires = row.resetExpires;
   obj.toJSON = function () { const { password_hash, passwordHash, ...rest } = this; return rest; };
   return obj;
 }
@@ -80,6 +86,8 @@ async function ensureTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "profileCompletion" INTEGER DEFAULT 0;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT now();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active TIMESTAMP DEFAULT now();
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetToken" TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetExpires" TIMESTAMP;
 
 
 
@@ -253,6 +261,8 @@ export const User = usePostgres ? {
       if (k === 'subscriptionPlan') k = 'subscription_plan';
       if (k === 'profileImage') k = 'profileimage';
       if (k === 'passwordHash') k = 'password_hash';
+      if (k === 'resetToken') k = 'reset_token';
+      if (k === 'resetExpires') k = 'reset_expires';
 
       if (k === 'photos' || k === 'unlockedMatches' || k === 'blocked' || k === 'interests') val = JSON.stringify(val || []);
       if (k === 'password') {
@@ -330,6 +340,8 @@ export const User = usePostgres ? {
         subscriptionActive: false,
         subscriptionPlan: null,
         subscriptionExpires: null,
+        resetToken: null,
+        resetExpires: null,
         createdAt: new Date(),
         lastActive: new Date(),
         blocked: [],
@@ -390,16 +402,16 @@ export const Match = usePostgres ? {
   async find(query = {}) {
     if (query.user1) {
       const res = await pool.query('SELECT * FROM matches WHERE user1 = $1 OR user2 = $1', [query.user1]);
-      return res.rows.map(r => ({ ...r, toJSON: () => r }));
+      return res.rows.map(wrapRow);
     }
     const res = await pool.query('SELECT * FROM matches');
-    return res.rows.map(r => ({ ...r, toJSON: () => r }));
+    return res.rows.map(wrapRow);
   },
   async create(data) {
     const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
     await pool.query('INSERT INTO matches(id, user1, user2, status, created_at, matched_at) VALUES($1,$2,$3,$4,now(),$5)', [id, data.user1, data.user2, data.status || 'pending', data.matchedAt || null]);
     const res = await pool.query('SELECT * FROM matches WHERE id = $1', [id]);
-    return res.rows[0];
+    return wrapRow(res.rows[0]);
   },
   async findOneAndUpdate(query, data) {
     const m = await this.findOne(query);
@@ -408,14 +420,19 @@ export const Match = usePostgres ? {
     const vals = [];
     let idx = 1;
     for (const key of Object.keys(data)) {
-      updates.push(`\"${key}\" = $${idx}`);
+      // Map camelCase to snake_case for database columns
+      let dbKey = key;
+      if (key === 'matchedAt') dbKey = 'matched_at';
+      if (key === 'createdAt') dbKey = 'created_at';
+      
+      updates.push(`\"${dbKey}\" = $${idx}`);
       vals.push(data[key]);
       idx++;
     }
     const q = `UPDATE matches SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`;
     vals.push(m.id || m._id);
     const res = await pool.query(q, vals);
-    return res.rows[0];
+    return wrapRow(res.rows[0]);
   }
 } : (function(){
   let matches = [];
