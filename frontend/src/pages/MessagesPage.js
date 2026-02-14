@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaComments, FaSearch } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
+import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -11,6 +12,7 @@ function MessagesPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [imageErrors, setImageErrors] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,6 +20,10 @@ function MessagesPage({ user }) {
     const interval = setInterval(fetchConversations, 5000); // refresh conversations periodically
     return () => clearInterval(interval);
   }, []);
+
+  const handleImageError = (userId) => {
+    setImageErrors(prev => ({ ...prev, [userId]: true }));
+  };
 
   const fetchConversations = async () => {
     try {
@@ -29,7 +35,13 @@ function MessagesPage({ user }) {
       setConversations(response.data.conversations || []);
     } catch (err) {
       const msg = err.response?.data?.error || '';
-      if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+      const profileCompletion = err.response?.data?.profileCompletion;
+      const required = err.response?.data?.required;
+      
+      if (err.response?.status === 403 && msg.toLowerCase().includes('complete')) {
+        if (profileCompletion !== undefined && required !== undefined) {
+          alert(`⚠️ Profile Incomplete\n\nYour profile is ${profileCompletion}% complete.\nYou need at least ${required}% to access messages.\n\nPlease complete your profile first.`);
+        }
         navigate('/profile');
         return;
       }
@@ -127,19 +139,20 @@ function MessagesPage({ user }) {
                   <div className="flex items-center gap-4">
                     {/* Avatar */}
                     <div className="relative flex-shrink-0 w-16 h-16">
-                      {conversation.user?.photos && conversation.user.photos.length > 0 ? (
+                      {conversation.user?.photos && conversation.user.photos.length > 0 && !imageErrors[conversation.user._id] ? (
                         <img
-                          src={conversation.user.photos[0].url}
+                          src={getImageUrl(conversation.user.photos[0].url)}
                           alt={conversation.user.name}
-                          className="w-16 h-16 rounded-full object-cover"
+                          className="w-16 h-16 rounded-full object-cover bg-gray-200"
+                          onError={() => handleImageError(conversation.user._id)}
                         />
                       ) : (
-                        <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-white text-xl font-bold">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xl font-bold">
                           {(conversation.user?.name || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
                       {conversation.user?.isOnline && (
-                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-lg"></div>
                       )}
                     </div>
 
@@ -148,6 +161,9 @@ function MessagesPage({ user }) {
                       <h3 className="text-lg font-semibold text-gray-800">
                         {conversation.user?.nickname || conversation.user?.name}
                       </h3>
+                      <p className={`text-xs font-medium mb-1 ${conversation.user?.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                        {conversation.user?.isOnline ? '🟢 Online' : '⚪ Offline'}
+                      </p>
                       <p className="text-sm text-gray-500 truncate">
                         {conversation.lastMessage?.message || 'No messages yet'}
                       </p>

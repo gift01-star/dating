@@ -285,7 +285,16 @@ app.post('/api/users/upload-photo', upload.single('photo'), async (req, res) => 
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    // Construct photo URL - use API_URL from env if available, otherwise construct from request
+    let photoUrl;
+    if (process.env.API_URL) {
+      photoUrl = `${process.env.API_URL}/uploads/${req.file.filename}`;
+    } else {
+      // For development: construct from request, preferring HTTPS
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      photoUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    }
 
     // Add photo to user's photos array
     if (!user.photos) {
@@ -351,7 +360,10 @@ app.delete('/api/users/photos/:publicId', async (req, res) => {
 
     await User.updateOne({ _id: user._id }, { photos: user.photos });
 
-    res.json({ message: 'Photo deleted successfully' });
+    res.json({ 
+      message: 'Photo deleted successfully',
+      photos: user.photos
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

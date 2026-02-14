@@ -21,17 +21,19 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Require a minimal profile completion before accessing certain features
-const requireCompleteProfile = async (req, res, next) => {
+// Require minimum 50% profile completion before accessing certain features
+const requireMinimumProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const hasNickname = !!user.nickname;
-    const hasPhoto = user.photos && user.photos.length > 0;
-
-    if (!hasNickname || !hasPhoto) {
-      return res.status(403).json({ error: 'Please complete your profile (add a nickname and at least one photo) before using this feature.' });
+    // Must have at least 50% profile completion
+    if ((user.profileCompletion || 0) < 50) {
+      return res.status(403).json({ 
+        error: 'Please complete at least 50% of your profile before using this feature.',
+        profileCompletion: user.profileCompletion || 0,
+        required: 50
+      });
     }
 
     next();
@@ -41,7 +43,7 @@ const requireCompleteProfile = async (req, res, next) => {
 };
 
 // Like a user
-router.post('/like/:userId', verifyToken, requireCompleteProfile, async (req, res) => {
+router.post('/like/:userId', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
     const targetUserId = req.params.userId;
 
@@ -177,10 +179,28 @@ router.get('/:id', verifyToken, async (req, res) => {
     const user1 = await User.findById(match.user1);
     const user2 = await User.findById(match.user2);
 
+    // Helper function to compute online status
+    const getOnlineStatus = (userObj) => {
+      if (!userObj) return false;
+      const FIVE_MIN = 5 * 60 * 1000;
+      const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+      return !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+    };
+
+    const user1Obj = user1 ? user1.toJSON() : { _id: match.user1 };
+    const user2Obj = user2 ? user2.toJSON() : { _id: match.user2 };
+
+    if (user1Obj && Object.keys(user1Obj).length > 1) {
+      user1Obj.isOnline = getOnlineStatus(user1);
+    }
+    if (user2Obj && Object.keys(user2Obj).length > 1) {
+      user2Obj.isOnline = getOnlineStatus(user2);
+    }
+
     res.json({
       ...match.toJSON(),
-      user1: user1 ? user1.toJSON() : { _id: match.user1 },
-      user2: user2 ? user2.toJSON() : { _id: match.user2 }
+      user1: user1Obj,
+      user2: user2Obj
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

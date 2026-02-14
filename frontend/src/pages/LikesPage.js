@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaHeart, FaTimes } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
+import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -10,15 +11,28 @@ function LikesPage({ user }) {
   const [likes, setLikes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [imageErrors, setImageErrors] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchLikes();
   }, []);
 
+  const handleImageError = (userId) => {
+    setImageErrors(prev => ({ ...prev, [userId]: true }));
+  };
+
   const handleForbiddenRedirect = (err) => {
     const msg = err.response?.data?.error || '';
-    if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+    const profileCompletion = err.response?.data?.profileCompletion;
+    const required = err.response?.data?.required;
+    
+    if (err.response?.status === 403 && msg.toLowerCase().includes('complete')) {
+      if (profileCompletion !== undefined && required !== undefined) {
+        alert(`⚠️ Profile Incomplete\n\nYour profile is ${profileCompletion}% complete.\nYou need at least ${required}% to use this feature.\n\nPlease complete your profile first.`);
+      } else {
+        alert(msg);
+      }
       navigate('/profile');
       return true;
     }
@@ -130,16 +144,17 @@ function LikesPage({ user }) {
             {likes.map((like) => (
               <div key={like._id} className="card overflow-hidden hover:shadow-xl transition">
                 {/* Photo */}
-                <div className="relative mb-4 bg-gray-200 rounded-lg overflow-hidden h-64">
-                  {like.user?.photos && like.user.photos.length > 0 ? (
+                <div className="relative mb-4 bg-gray-300 rounded-lg overflow-hidden h-64">
+                  {like.user?.photos && like.user.photos.length > 0 && !imageErrors[like.user._id] ? (
                     <img
-                      src={like.user.photos[0].url}
+                      src={getImageUrl(like.user.photos[0].url)}
                       alt={like.user.name}
                       className="w-full h-full object-cover"
+                      onError={() => handleImageError(like.user._id)}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      No photo
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gradient-to-br from-gray-300 to-gray-400">
+                      📷 {imageErrors[like.user._id] ? 'Photo failed to load' : 'No photo'}
                     </div>
                   )}
                   <div className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
@@ -148,7 +163,9 @@ function LikesPage({ user }) {
 
                   {/* Online indicator */}
                   {like.user?.isOnline && (
-                    <div className="absolute bottom-3 right-3 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                      🟢 Online
+                    </div>
                   )}
                 </div>
 
@@ -156,6 +173,10 @@ function LikesPage({ user }) {
                 <h3 className="text-xl font-bold text-gray-800 mb-2">
                   {like.user?.nickname || like.user?.name}
                 </h3>
+
+                <p className={`text-xs font-medium mb-2 ${like.user?.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                  {like.user?.isOnline ? '🟢 Online' : '⚪ Offline'}
+                </p>
 
                 {like.user?.university && (
                   <p className="text-gray-600 mb-1">{like.user.university}</p>

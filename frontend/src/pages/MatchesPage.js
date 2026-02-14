@@ -3,12 +3,14 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaComments } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
+import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function MatchesPage({ user }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState({});
   const navigate = useNavigate();
 
   // Local blocked state to reflect unblock actions immediately
@@ -17,6 +19,10 @@ function MatchesPage({ user }) {
   useEffect(() => {
     setLocalBlocked(user?.blocked || []);
   }, [user]);
+
+  const handleImageError = (userId) => {
+    setImageErrors(prev => ({ ...prev, [userId]: true }));
+  };
 
   useEffect(() => {
     fetchMatches();
@@ -83,16 +89,22 @@ function MatchesPage({ user }) {
             {matches.map((match) => (
               <div key={match._id} className="card overflow-hidden hover:shadow-xl transition">
                 {/* Photo */}
-                <div className="relative mb-4 bg-gray-200 rounded-lg overflow-hidden h-64">
-                  {match.user.photos && match.user.photos.length > 0 ? (
+                <div className="relative mb-4 bg-gray-300 rounded-lg overflow-hidden h-64">
+                  {match.user.photos && match.user.photos.length > 0 && !imageErrors[match.user._id] ? (
                     <img
-                      src={match.user.photos[0].url}
+                      src={getImageUrl(match.user.photos[0].url)}
                       alt={match.user.name}
                       className="w-full h-full object-cover"
+                      onError={() => handleImageError(match.user._id)}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      No photo
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gradient-to-br from-gray-300 to-gray-400">
+                      📷 {imageErrors[match.user._id] ? 'Photo failed to load' : 'No photo'}
+                    </div>
+                  )}
+                  {match.user.isOnline && (
+                    <div className="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                      🟢 Online
                     </div>
                   )}
                 </div>

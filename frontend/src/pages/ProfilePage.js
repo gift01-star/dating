@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaSignOutAlt, FaTrash, FaCamera, FaClock, FaShieldAlt } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 import LogoutConfirmDialog from '../components/LogoutConfirmDialog';
+import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -26,6 +27,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [message, setMessage] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photos, setPhotos] = useState(user?.photos || []);
+  const [photoErrors, setPhotoErrors] = useState({});
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [activeTab, setActiveTab] = useState('view'); // view, edit, photos, security
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -108,7 +110,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
     if (!file) return;
 
     try {
-      setUploadingPhoto(true);
+      setMessage('');
       const token = localStorage.getItem('token');
       const formDataObj = new FormData();
       formDataObj.append('photo', file);
@@ -120,10 +122,21 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
         }
       });
 
-      setPhotos(response.data.photos);
-      setMessage('Photo uploaded successfully!');
+      // Update photos array from response
+      if (response.data.photos) {
+        setPhotos(response.data.photos);
+        // Reload user profile to get updated photos
+        const userResponse = await axios.get(`${API_URL}/users/profile/${user._id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUser(userResponse.data);
+      }
+      
+      setMessage('✅ Photo uploaded successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
+      console.error('Photo upload error:', err);
+      setMessage(err.response?.data?.error || 'Failed to upload photo. Please try again.
       setMessage(err.response?.data?.error || 'Failed to upload photo');
     } finally {
       setUploadingPhoto(false);
@@ -133,15 +146,16 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const handleDeletePhoto = async (publicId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/users/photos/${publicId}`, {
+      const response = await axios.delete(`${API_URL}/users/photos/${publicId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setPhotos(photos.filter(p => p.publicId !== publicId));
-      setMessage('Photo deleted successfully!');
+      setPhotos(response.data.photos || photos.filter(p => p.publicId !== publicId));
+      setMessage('✅ Photo deleted successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
-      setMessage(err.response?.data?.error || 'Failed to delete photo');
+      console.error('Photo delete error:', err);
+      setMessage(err.response?.data?.error || 'Failed to delete photo. Please try again.');
     }
   };
 
@@ -221,21 +235,47 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
           )}
 
           {/* Profile Completion Bar */}
-          <div className="mb-6 bg-gradient-to-r from-pink-100 to-orange-100 p-4 rounded-lg">
+          <div className={`mb-6 p-4 rounded-lg ${
+            profileCompletion < 50 
+              ? 'bg-red-100 border-2 border-red-300' 
+              : profileCompletion < 100
+              ? 'bg-yellow-100 border-2 border-yellow-300'
+              : 'bg-green-100 border-2 border-green-300'
+          }`}>
             <div className="flex justify-between items-center mb-2">
               <span className="font-semibold text-gray-700">Profile Completion</span>
-              <span className="text-pink-600 font-bold">{profileCompletion}%</span>
+              <span className={`font-bold ${
+                profileCompletion < 50 
+                  ? 'text-red-600' 
+                  : profileCompletion < 100
+                  ? 'text-yellow-600'
+                  : 'text-green-600'
+              }`}>{profileCompletion}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-gray-300 rounded-full h-3 mb-2">
               <div 
-                className="bg-gradient-to-r from-pink-500 to-orange-500 h-3 rounded-full transition-all duration-300"
+                className={`h-3 rounded-full transition-all duration-300 ${
+                  profileCompletion < 50 
+                    ? 'bg-red-500' 
+                    : profileCompletion < 100
+                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                }`}
                 style={{ width: `${profileCompletion}%` }}
               ></div>
             </div>
-            <p className="text-sm text-gray-600 mt-2">
-              {profileCompletion === 100 
-                ? '✓ Your profile is complete!' 
-                : 'Complete your profile to attract more matches'}
+            <p className={`text-sm font-medium ${
+              profileCompletion < 50 
+                ? 'text-red-700' 
+                : profileCompletion < 100
+                ? 'text-yellow-700'
+                : 'text-green-700'
+            }`}>
+              {profileCompletion < 50 
+                ? `⚠️ Your profile is ${profileCompletion}% complete. You need at least 50% to access features.`
+                : profileCompletion === 100 
+                ? '✅ Your profile is complete!' 
+                : `Good progress! Complete more to reach 100%`}
             </p>
           </div>
 
@@ -535,12 +575,23 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
               <h3 className="text-lg font-semibold mb-4">Your Photos</h3>
               <p className="text-gray-600 text-sm mb-4">Upload up to 10 photos. The first photo will be your profile picture.</p>
               
+              {message && (
+                <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${
+                  message.includes('✅') || message.includes('successfully') 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {message}
+                </div>
+              )}
+              
               {/* Upload Section */}
-              <div className="mb-6 p-4 border-2 border-dashed border-pink-300 rounded-lg hover:border-pink-500 transition">
+              <div className="mb-6 p-4 border-2 border-dashed border-pink-300 rounded-lg hover:border-pink-500 transition bg-pink-50 hover:bg-pink-100">
                 <label className="cursor-pointer flex flex-col items-center justify-center">
-                  <FaCamera className="text-pink-500 text-3xl mb-2" />
-                  <span className="text-gray-700 font-semibold">Click to upload photo</span>
-                  <span className="text-gray-500 text-sm">PNG, JPG, GIF up to 10MB</span>
+                  <FaCamera className="text-pink-500 text-4xl mb-3" />
+                  <span className="text-gray-700 font-semibold text-lg">Click to upload photo</span>
+                  <span className="text-gray-500 text-sm mt-1">PNG, JPG, GIF, WebP up to 10MB</span>
+                  <span className="text-gray-400 text-xs mt-2">{photos.length}/10 photos</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -551,23 +602,52 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                 </label>
               </div>
 
-              {uploadingPhoto && <p className="text-blue-600 font-semibold">Uploading...</p>}
+              {uploadingPhoto && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 font-medium text-sm">
+                  ⏳ Uploading photo... Please wait
+                </div>
+              )}
 
               {/* Photos Grid */}
               {photos.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {photos.map((photo, idx) => (
-                    <div key={photo.publicId} className="relative group">
-                      <img
-                        src={photo.url}
-                        alt={`Photo ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
+                    <div key={photo.publicId} className="relative group bg-gray-100 rounded-lg overflow-hidden">
+                      {photoErrors[photo.publicId] ? (
+                        <div className="w-full h-48 bg-gray-300 flex items-center justify-center text-gray-600 text-center p-2 rounded-lg">
+                          <div>
+                            <p className="text-sm font-semibold">📸 Photo not found</p>
+                            <p className="text-xs text-gray-500 mt-1">Please reupload</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={getImageUrl(photo.url)}
+                          alt={`Photo ${idx + 1}`}
+                          className="w-full h-48 object-cover rounded-lg bg-gray-200"
+                          onError={() => setPhotoErrors(prev => ({ ...prev, [photo.publicId]: true }))}
+                          loading="lazy"
+                        />
+                      )}
                       {idx === 0 && (
-                        <span className="absolute top-2 left-2 bg-pink-500 text-white text-xs px-2 py-1 rounded">
+                        <span className="absolute top-2 left-2 bg-pink-500 text-white text-xs px-2 py-1 rounded font-semibold">
                           Main
                         </span>
                       )}
+                      <button
+                        onClick={() => handleDeletePhoto(photo.publicId)}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
+                        title="Delete photo"
+                      >
+                        <FaTrash size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <p className="text-gray-500 font-medium">📸 No photos yet</p>
+                  <p className="text-gray-400 text-sm mt-1">Upload your first photo to get started
                       <button
                         onClick={() => handleDeletePhoto(photo.publicId)}
                         className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition"

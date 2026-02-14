@@ -19,13 +19,13 @@ function LandingPage() {
               onClick={() => navigate('/login')}
               className="px-6 py-2 text-gray-700 hover:text-pink-500 font-medium transition"
             >
-              Login
+      
             </button>
             <button
               onClick={() => navigate('/register')}
               className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition font-medium"
             >
-              Sign Up
+            
             </button>
           </div>
         </div>
@@ -229,7 +229,7 @@ function LandingPage() {
               <h4 className="font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-gray-400">
                 <li><button onClick={() => navigate('/terms')} className="hover:text-white transition text-left">Terms & Conditions</button></li>
-                <li><a href="https://github.com/gift01-star/dating/blob/main/docs/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Privacy Policy</a></li>
+                <li><a href="#" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Privacy Policy</a></li>
                 <li><button onClick={() => navigate('/guidelines')} className="hover:text-white transition text-left">Community Guidelines</button></li>
               </ul>
             </div>
@@ -249,7 +249,7 @@ function LandingPage() {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-gray-400">&copy; 2026 EduLove. All rights reserved.</p>
               <div className="flex space-x-6 mt-4 md:mt-0">
-                <a href="#" className="text-gray-400 hover:text-white transition">Facebook</a>
+                <a href="https://web.facebook.com/profile.php?id=61587252185302" className="text-gray-400 hover:text-white transition">Facebook</a>
                 <a href="#" className="text-gray-400 hover:text-white transition">Twitter</a>
                 <a href="#" className="text-gray-400 hover:text-white transition">Instagram</a>
               </div>

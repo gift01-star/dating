@@ -122,11 +122,13 @@ router.get('/discover', verifyToken, async (req, res) => {
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ error: 'User not found' });
 
-    // Require minimal profile completion before accessing discover
-    const hasNickname = !!currentUser.nickname;
-    const hasPhoto = currentUser.photos && currentUser.photos.length > 0;
-    if (!hasNickname || !hasPhoto) {
-      return res.status(403).json({ error: 'Please complete your profile (add a nickname and at least one photo) before discovering profiles.' });
+    // Require minimum 50% profile completion before accessing discover
+    if ((currentUser.profileCompletion || 0) < 50) {
+      return res.status(403).json({ 
+        error: 'Please complete at least 50% of your profile before discovering profiles.',
+        profileCompletion: currentUser.profileCompletion || 0,
+        required: 50
+      });
     }
 
     let allUsers = await User.find({});

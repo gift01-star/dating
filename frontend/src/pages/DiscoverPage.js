@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaTimes, FaArrowLeft, FaComments } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
+import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -11,6 +12,7 @@ function DiscoverPage({ user }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [imageError, setImageError] = useState(false);
   const [filters, setFilters] = useState({
     gender: '',
     university: '',
@@ -29,7 +31,16 @@ function DiscoverPage({ user }) {
 
   const handleForbiddenRedirect = (err) => {
     const msg = err.response?.data?.error || '';
-    if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+    const profileCompletion = err.response?.data?.profileCompletion;
+    const required = err.response?.data?.required;
+    
+    if (err.response?.status === 403 && msg.toLowerCase().includes('complete')) {
+      // Show alert with profile completion info
+      if (profileCompletion !== undefined && required !== undefined) {
+        alert(`⚠️ Profile Incomplete\n\nYour profile is ${profileCompletion}% complete.\nYou need at least ${required}% to use this feature.\n\nPlease complete your profile first.`);
+      } else {
+        alert(msg);
+      }
       navigate('/profile');
       return true;
     }
@@ -75,6 +86,7 @@ function DiscoverPage({ user }) {
       });
 
       setCurrentIndex(prev => prev + 1);
+      setImageError(false);
     } catch (err) {
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error liking profile');
     }
@@ -92,6 +104,7 @@ function DiscoverPage({ user }) {
       });
 
       setCurrentIndex(prev => prev + 1);
+      setImageError(false);
     } catch (err) {
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error passing profile');
     }
@@ -214,13 +227,14 @@ function DiscoverPage({ user }) {
         {currentProfile && (
           <div className="card overflow-hidden mb-6">
             {/* Photos Carousel */}
-            <div className="relative mb-4 bg-gray-200 rounded-lg overflow-hidden h-96">
-              {currentProfile.photos && currentProfile.photos.length > 0 ? (
+            <div className="relative mb-4 bg-gray-300 rounded-lg overflow-hidden h-96">
+              {currentProfile.photos && currentProfile.photos.length > 0 && !imageError ? (
                 <>
                   <img
-                    src={currentProfile.photos[0].url}
+                    src={getImageUrl(currentProfile.photos[0].url)}
                     alt={currentProfile.name}
                     className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
                   />
                   {currentProfile.photos.length > 1 && (
                     <div className="absolute top-3 right-3 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
@@ -229,8 +243,8 @@ function DiscoverPage({ user }) {
                   )}
                 </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  📷 No photo uploaded yet
+                <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gradient-to-br from-gray-300 to-gray-400">
+                  📷 {imageError ? 'Photo failed to load' : 'No photo uploaded yet'}
                 </div>
               )}
             </div>

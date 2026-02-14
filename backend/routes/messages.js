@@ -21,16 +21,18 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-const requireCompleteProfile = async (req, res, next) => {
+const requireMinimumProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const hasNickname = !!user.nickname;
-    const hasPhoto = user.photos && user.photos.length > 0;
-
-    if (!hasNickname || !hasPhoto) {
-      return res.status(403).json({ error: 'Please complete your profile (add a nickname and at least one photo) before using messaging features.' });
+    // Must have at least 50% profile completion
+    if ((user.profileCompletion || 0) < 50) {
+      return res.status(403).json({ 
+        error: 'Please complete at least 50% of your profile before using this feature.',
+        profileCompletion: user.profileCompletion || 0,
+        required: 50
+      });
     }
 
     next();
@@ -40,7 +42,7 @@ const requireCompleteProfile = async (req, res, next) => {
 };
 
 // Send message
-router.post('/:matchId', verifyToken, requireCompleteProfile, async (req, res) => {
+router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
     const { message } = req.body;
 
@@ -140,7 +142,7 @@ router.get('/unread/count', verifyToken, async (req, res) => {
 });
 
 // Get all conversations for a user
-router.get('/conversations', verifyToken, requireCompleteProfile, async (req, res) => {
+router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
     const { Match, User } = await import('../database.js');
     

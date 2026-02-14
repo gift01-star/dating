@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag, FaSmile } from 'react-icons/fa';
+import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -12,6 +13,7 @@ function ChatPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [matchInfo, setMatchInfo] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
 
   // Keep a local copy of the user so we can update blocked/unblocked state locally
@@ -59,7 +61,13 @@ function ChatPage({ user }) {
       setLoading(false);
     } catch (err) {
       const msg = err.response?.data?.error || '';
-      if (err.response?.status === 403 && msg.toLowerCase().includes('complete your profile')) {
+      const profileCompletion = err.response?.data?.profileCompletion;
+      const required = err.response?.data?.required;
+      
+      if (err.response?.status === 403 && msg.toLowerCase().includes('complete')) {
+        if (profileCompletion !== undefined && required !== undefined) {
+          alert(`⚠️ Profile Incomplete\n\nYour profile is ${profileCompletion}% complete.\nYou need at least ${required}% to access messages.\n\nPlease complete your profile first.`);
+        }
         navigate('/profile');
         return;
       }
@@ -82,6 +90,16 @@ function ChatPage({ user }) {
       setMessage('');
       fetchMessages();
     } catch (err) {
+      // Profile completion errors
+      const profileCompletion = err.response?.data?.profileCompletion;
+      const required = err.response?.data?.required;
+      
+      if (err.response && err.response.status === 403 && profileCompletion !== undefined) {
+        alert(`⚠️ Profile Incomplete\n\nYour profile is ${profileCompletion}% complete.\nYou need at least ${required}% to send messages.\n\nPlease complete your profile first.`);
+        navigate('/profile');
+        return;
+      }
+
       // Payments temporarily disabled — show friendly message instead of redirecting
       if (err.response && err.response.status === 402) {
         alert('Payments are currently disabled. Messaging is free.');
@@ -188,19 +206,20 @@ function ChatPage({ user }) {
           </button>
           {matchInfo?.user && (
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-              {matchInfo.user.photos && matchInfo.user.photos.length > 0 ? (
+              {matchInfo.user.photos && matchInfo.user.photos.length > 0 && !imageError ? (
                 <div className="relative flex-shrink-0">
                   <img
-                    src={matchInfo.user.photos[0].url}
+                    src={getImageUrl(matchInfo.user.photos[0].url)}
                     alt={matchInfo.user.name}
-                    className="w-8 md:w-10 h-8 md:h-10 rounded-full object-cover"
+                    className="w-8 md:w-10 h-8 md:h-10 rounded-full object-cover bg-pink-200"
+                    onError={() => setImageError(true)}
                   />
                   {matchInfo.user.isOnline && (
                     <div className="absolute bottom-0 right-0 w-2 md:w-3 h-2 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
                   )}
                 </div>
               ) : (
-                <div className="w-8 md:w-10 h-8 md:h-10 rounded-full bg-pink-300 flex items-center justify-center text-white font-bold text-sm md:text-base relative flex-shrink-0">
+                <div className="w-8 md:w-10 h-8 md:h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold text-sm md:text-base relative flex-shrink-0">
                   {(matchInfo.user.name || 'U').charAt(0).toUpperCase()}
                   {matchInfo.user.isOnline && (
                     <div className="absolute bottom-0 right-0 w-2 md:w-3 h-2 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
@@ -211,9 +230,14 @@ function ChatPage({ user }) {
                 <h1 className="text-base md:text-lg font-bold text-gray-800 truncate">
                   {matchInfo.user.nickname || matchInfo.user.name}
                 </h1>
-                <p className="text-xs text-gray-500 truncate">
-                  {matchInfo.user.university || ''}
-                </p>
+                <div className="text-xs text-gray-500 truncate">
+                  {matchInfo.user.university && (
+                    <span>{matchInfo.user.university}</span>
+                  )}
+                  <p className={`text-xs ${matchInfo.user.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                    {matchInfo.user.isOnline ? '🟢 Online' : '⚪ Offline'}
+                  </p>
+                </div>
               </div>
 
               {/* Block / Unblock & Report actions */}
