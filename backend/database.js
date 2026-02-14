@@ -363,14 +363,17 @@ export const User = usePostgres ? {
     },
 
     create: async function(data) {
+      // Hash password FIRST before using it
+      const passwordHash = await hashPassword(data.password || '');
+      
       const user = {
         _id: String(idCounter++),
-        ...data,
-        passwordHash: await hashPassword(data.password),
-        // Core fields
+        // Core fields - explicitly set, don't spread data
         email: (data.email || '').toLowerCase(),
         name: data.name || '',
         nickname: data.nickname || '',
+        // Password
+        passwordHash: passwordHash,  // IMPORTANT: After hashing, set explicitly
         // Profile fields
         gender: data.gender || '',
         dob: data.dob || null,
@@ -408,8 +411,9 @@ export const User = usePostgres ? {
         resetExpires: data.resetExpires || null,
         toJSON: function() { const { passwordHash, ...rest } = this; return rest; }
       };
-      delete user.password;
+      
       users.push(user);
+      console.log('[InMemory.create] User created:', user.email, 'with passwordHash:', !!user.passwordHash);
       return user;
     },
 
