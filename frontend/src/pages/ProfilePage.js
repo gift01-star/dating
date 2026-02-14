@@ -646,19 +646,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
               ) : (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                   <p className="text-gray-500 font-medium">📸 No photos yet</p>
-                  <p className="text-gray-400 text-sm mt-1">Upload your first photo to get started
-                      <button
-                        onClick={() => handleDeletePhoto(photo.publicId)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition"
-                      >
-                        <FaTrash size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <p className="text-gray-500">No photos yet. Upload your first photo!</p>
+                  <p className="text-gray-400 text-sm mt-1">Upload your first photo to get started!</p>
                 </div>
               )}
             </div>
