@@ -74,13 +74,11 @@ router.post('/login', async (req, res) => {
     }
 
     console.log('[Login] User found:', user.name, '- Checking password...');
+    console.log('[Login] User has passwordHash:', !!user.passwordHash);
 
-    // database.js exports a comparePassword helper; it works whether using
-    // the postgres wrapper or in-memory fallback.  Previously the code
-    // attempted to call `user.comparePassword`, which doesn't exist for
-    // plain objects and resulted in errors.  Use the User-level helper.
+    // Use the User-level comparePassword helper
     const isPasswordValid = await User.comparePassword(email, password);
-    console.log('[Login] Password valid:', isPasswordValid);
+    console.log('[Login] Password valid result:', isPasswordValid);
     
     if (!isPasswordValid) {
       console.log('[Login] Invalid password for user:', email);
@@ -100,8 +98,8 @@ router.post('/login', async (req, res) => {
       user: user.toJSON()
     });
   } catch (error) {
-    console.error('[Login] Error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[Login] Error:', error.stack || error.message || error);
+    res.status(500).json({ error: error.message || 'Login error' });
   }
 });
 

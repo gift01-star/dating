@@ -138,6 +138,8 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
+    console.log('[Messages] Sending message for matchId:', req.params.matchId);
+
     const match = await Match.findOne({ _id: req.params.matchId });
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
@@ -169,11 +171,14 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
       createdAt: new Date()
     });
 
+    console.log('[Messages] Message created:', newMessage._id);
+
     res.status(201).json({
       message: 'Message sent',
       data: newMessage
     });
   } catch (error) {
+    console.error('[Messages] Error sending message:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -181,10 +186,13 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
 // Get messages for a match
 router.get('/:matchId', verifyToken, async (req, res) => {
   try {
+    console.log('[Messages] Fetching messages for matchId:', req.params.matchId);
+    
     const match = await Match.findOne({ _id: req.params.matchId });
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
     const msgs = await Message.find({ matchId: req.params.matchId });
+    console.log('[Messages] Found', msgs.length, 'messages');
 
     // Mark as read (persist using updateOne for in-memory DB compatibility)
     for (const msg of msgs) {
@@ -202,6 +210,7 @@ router.get('/:matchId', verifyToken, async (req, res) => {
 
     res.json(msgs);
   } catch (error) {
+    console.error('[Messages] Error fetching messages:', error);
     res.status(500).json({ error: error.message });
   }
 });

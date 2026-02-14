@@ -18,17 +18,24 @@ function LoginPage({ setIsAuthenticated, setUser }) {
     setLoading(true);
 
     try {
+      console.log('[LoginPage] Attempting login with email:', email);
+      console.log('[LoginPage] API URL:', API_URL);
+      
       const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password
       });
 
+      console.log('[LoginPage] Login successful, got token:', response.data.token.substring(0, 20) + '...');
+      
       localStorage.setItem('token', response.data.token);
       setUser(response.data.user);
       setIsAuthenticated(true);
       navigate('/discover');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      console.error('[LoginPage] Login error:', err.response?.status, err.response?.data || err.message);
+      const errorMsg = err.response?.data?.error || err.message || 'Login failed';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

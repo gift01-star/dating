@@ -99,12 +99,17 @@ export default function PaymentsPage({ user }) {
       setError('');
       const token = localStorage.getItem('token');
 
+      console.log('[PaymentsPage] Creating payment session for plan:', planId);
+      console.log('[PaymentsPage] API URL:', API_URL);
+
       const response = await axios.post(`${API_URL}/payments/create-session`, {
         planId,
         provider: 'paychangu'
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
+      console.log('[PaymentsPage] Got checkout URL:', response.data.checkoutUrl);
 
       if (response.data.checkoutUrl) {
         // Redirect to Paychangu checkout
@@ -113,7 +118,7 @@ export default function PaymentsPage({ user }) {
         setError('Failed to create checkout session. Please try again.');
       }
     } catch (err) {
-      console.error('Payment error:', err);
+      console.error('[PaymentsPage] Payment error:', err.response?.status, err.response?.data || err.message);
       if (err.response?.status === 403) {
         setError('⚠️ Please complete at least 50% of your profile before making a payment.');
         setTimeout(() => navigate('/profile'), 2000);

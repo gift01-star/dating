@@ -129,10 +129,13 @@ function ChatPage({ user }) {
   const fetchMessages = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('[ChatPage] Fetching messages for matchId:', matchId);
+      
       const response = await axios.get(`${API_URL}/messages/${matchId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      console.log('[ChatPage] Got messages:', response.data.length, 'messages');
       setMessages(response.data);
       
       // Fetch match info to display user details
@@ -169,7 +172,7 @@ function ChatPage({ user }) {
         navigate('/profile');
         return;
       }
-      console.error('Error fetching messages:', err);
+      console.error('[ChatPage] Error fetching messages:', err);
     } finally {
       setLoading(false);
     }
@@ -183,12 +186,16 @@ function ChatPage({ user }) {
     try {
       const token = localStorage.getItem('token');
 
-      await axios.post(`${API_URL}/messages/${matchId}`, { message }, {
+      console.log('[ChatPage] Sending message for matchId:', matchId);
+      
+      const response = await axios.post(`${API_URL}/messages/${matchId}`, { message }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      console.log('[ChatPage] Message sent successfully:', response.data);
+      
       setMessage('');
-      fetchMessages();
+      await fetchMessages();
     } catch (err) {
       // Profile completion errors
       const profileCompletion = err.response?.data?.profileCompletion;
@@ -213,7 +220,7 @@ function ChatPage({ user }) {
         return;
       }
 
-      console.error('Error sending message:', err);
+      console.error('[ChatPage] Error sending message:', err);
       alert('Error sending message. Please try again.');
     }
   };

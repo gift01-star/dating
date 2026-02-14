@@ -366,6 +366,13 @@ export const User = usePostgres ? {
     updateOne: async function(query, data) {
       const user = await this.findOne(query);
       if (!user) throw new Error('User not found');
+      
+      // Handle password hashing if password is being updated
+      if (data.password) {
+        data.passwordHash = await hashPassword(data.password);
+        delete data.password;
+      }
+      
       Object.assign(user, data);
       user.lastActive = new Date();
       return user;
