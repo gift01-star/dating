@@ -7,7 +7,7 @@ import LogoutConfirmDialog from '../components/LogoutConfirmDialog';
 import PhotoGallery from '../components/PhotoGallery';
 import getImageUrl from '../utils/imageUrl';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrender.com/api';
 
 function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [formData, setFormData] = useState({

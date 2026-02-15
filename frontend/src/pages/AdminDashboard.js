@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft } from 'react-icons/fa';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://frontend-i89x.onrender.com/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrender.com/api';
 
 function AdminDashboard() {
   const [stats, setStats] = useState(null);

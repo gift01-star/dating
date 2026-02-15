@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { FaHeart } from 'react-icons/fa';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://frontend-i89x.onrender.com/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrender.com/api';
 
 function RegisterPage({ setIsAuthenticated, setUser }) {
   const [formData, setFormData] = useState({

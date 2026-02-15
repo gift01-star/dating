@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://frontend-i89x.onrender.com/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrender.com/api';
 
 export default function PasswordResetRequestPage() {
   const [email, setEmail] = useState('');
