@@ -85,9 +85,12 @@ const groupMessagesByDate = (messages) => {
       
       const dateKey = date.toDateString();
       if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
+        grouped[dateKey] = {
+          date: date,
+          messages: []
+        };
       }
-      grouped[dateKey].push(msg);
+      grouped[dateKey].messages.push(msg);
     } catch (err) {
       console.error('Error grouping message:', err);
     }
@@ -409,20 +412,20 @@ function ChatPage({ user }) {
               <p className="text-sm mt-1">Send a message to get things rolling</p>
             </div>
           ) : (
-            Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
+            Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateGroup]) => (
               <div key={dateKey}>
                 {/* Date Separator */}
                 <div className="flex items-center gap-3 my-6">
                   <div className="flex-1 h-px bg-gray-300"></div>
                   <span className="text-xs text-gray-500 font-medium px-3 py-1 bg-gray-50 rounded-full">
-                    {formatDateSeparator(dateKey)}
+                    {formatDateSeparator(dateGroup.date || dateKey)}
                   </span>
                   <div className="flex-1 h-px bg-gray-300"></div>
                 </div>
                 
                 {/* Messages for this day */}
                 <div className="space-y-2">
-                  {dateMessages.map((msg) => (
+                  {dateGroup.messages.map((msg) => (
                     <div
                       key={msg._id}
                       className={`flex ${msg.senderId === localUser?._id ? 'justify-end' : 'justify-start'}`}

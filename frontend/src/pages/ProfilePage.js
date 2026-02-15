@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaSignOutAlt, FaTrash, FaCamera, FaClock, FaShieldAlt } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 import LogoutConfirmDialog from '../components/LogoutConfirmDialog';
+import PhotoGallery from '../components/PhotoGallery';
 import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -617,42 +618,9 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                 </div>
               )}
 
-              {/* Photos Grid */}
+              {/* Photos Gallery with Scrollable View */}
               {photos.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {photos.map((photo, idx) => (
-                    <div key={photo.publicId} className="relative group bg-gray-100 rounded-lg overflow-hidden">
-                      {photoErrors[photo.publicId] ? (
-                        <div className="w-full h-48 bg-gray-300 flex items-center justify-center text-gray-600 text-center p-2 rounded-lg">
-                          <div>
-                            <p className="text-sm font-semibold">📸 Photo not found</p>
-                            <p className="text-xs text-gray-500 mt-1">Please reupload</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={getImageUrl(photo.url)}
-                          alt={`Photo ${idx + 1}`}
-                          className="w-full h-48 object-cover rounded-lg bg-gray-200"
-                          onError={() => setPhotoErrors(prev => ({ ...prev, [photo.publicId]: true }))}
-                          loading="lazy"
-                        />
-                      )}
-                      {idx === 0 && (
-                        <span className="absolute top-2 left-2 bg-pink-500 text-white text-xs px-2 py-1 rounded font-semibold">
-                          Main
-                        </span>
-                      )}
-                      <button
-                        onClick={() => handleDeletePhoto(photo.publicId)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
-                        title="Delete photo"
-                      >
-                        <FaTrash size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <PhotoGallery photos={photos} onDeletePhoto={handleDeletePhoto} />
               ) : (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                   <p className="text-gray-500 font-medium">📸 No photos yet</p>

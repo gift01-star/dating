@@ -159,20 +159,8 @@ function DiscoverPage({ user }) {
         <div className="bg-white rounded-lg p-3 md:p-4 mb-4 md:mb-6 shadow-sm">
           <h3 className="font-semibold text-gray-700 mb-3 text-sm md:text-base">Filters</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-            <input
-              type="text"
-              placeholder="University"
-              value={filters.university}
-              onChange={(e) => setFilters({ ...filters, university: e.target.value })}
-              className="input-field text-sm"
-            />
-            <input
-              type="text"
-              placeholder="Location"
-              value={filters.location}
-              onChange={(e) => setFilters({ ...filters, location: e.target.value })}
-              className="input-field text-sm"
-            />
+            
+            
             <select
               value={filters.gender}
               onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
@@ -206,20 +194,8 @@ function DiscoverPage({ user }) {
               <option value="22">22+</option>
               <option value="25">25+</option>
             </select>
-            <input
-              type="number"
-              placeholder="Min Height (cm)"
-              value={filters.minHeight}
-              onChange={(e) => setFilters({ ...filters, minHeight: e.target.value })}
-              className="input-field text-sm"
-            />
-            <input
-              type="number"
-              placeholder="Max Height (cm)"
-              value={filters.maxHeight}
-              onChange={(e) => setFilters({ ...filters, maxHeight: e.target.value })}
-              className="input-field text-sm"
-            />
+            
+            
           </div>
         </div>
 

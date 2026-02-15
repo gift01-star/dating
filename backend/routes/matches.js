@@ -114,6 +114,50 @@ router.post('/pass/:userId', verifyToken, async (req, res) => {
   }
 });
 
+// Get all likes received (must come before /:id to match correctly)
+router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
+  try {
+    const allMatches = await Match.find({});
+    
+    const likesReceived = allMatches.filter(m => {
+      return m.status === 'pending' && String(m.user2) === String(req.userId);
+    });
+
+    const likesWithUsers = await Promise.all(likesReceived.map(async (like) => {
+      try {
+        const user = await User.findById(like.user1);
+        const userObj = user ? user.toJSON() : null;
+
+        // Compute online status: active flag + recent activity within 5 minutes
+        if (userObj) {
+          const FIVE_MIN = 5 * 60 * 1000;
+          const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+          userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+        }
+
+        return {
+          ...like.toJSON(),
+          user: userObj
+        };
+      } catch (err) {
+        console.error('Error processing like:', err);
+        return null;
+      }
+    })).then(results => results.filter(Boolean));
+
+    // Sort by online status first, then by most recent likes
+    const sorted = likesWithUsers.sort((a, b) => {
+      if (a.user?.isOnline && !b.user?.isOnline) return -1;
+      if (!a.user?.isOnline && b.user?.isOnline) return 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    res.json({ likes: sorted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get matches
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -202,50 +246,6 @@ router.get('/:id', verifyToken, async (req, res) => {
       user1: user1Obj,
       user2: user2Obj
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get all likes received
-router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
-  try {
-    const allMatches = await Match.find({});
-    
-    const likesReceived = allMatches.filter(m => {
-      return m.status === 'pending' && String(m.user2) === String(req.userId);
-    });
-
-    const likesWithUsers = await Promise.all(likesReceived.map(async (like) => {
-      try {
-        const user = await User.findById(like.user1);
-        const userObj = user ? user.toJSON() : null;
-
-        // Compute online status: active flag + recent activity within 5 minutes
-        if (userObj) {
-          const FIVE_MIN = 5 * 60 * 1000;
-          const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
-          userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
-        }
-
-        return {
-          ...like.toJSON(),
-          user: userObj
-        };
-      } catch (err) {
-        console.error('Error processing like:', err);
-        return null;
-      }
-    })).then(results => results.filter(Boolean));
-
-    // Sort by online status first, then by most recent likes
-    const sorted = likesWithUsers.sort((a, b) => {
-      if (a.user?.isOnline && !b.user?.isOnline) return -1;
-      if (!a.user?.isOnline && b.user?.isOnline) return 1;
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
-
-    res.json({ likes: sorted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

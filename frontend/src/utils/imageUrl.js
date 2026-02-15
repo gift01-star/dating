@@ -11,10 +11,10 @@ export function getImageUrl(imagePath) {
     return imagePath;
   }
 
-  // If it's a relative path starting with /uploads, prepend the API base URL
+  // If it's a relative path starting with /uploads, construct the full URL
   if (imagePath?.startsWith('/uploads')) {
-    // Extract the base URL (without /api)
-    const baseUrl = API_URL.replace('/api', '');
+    // Extract the base URL (remove /api if present)
+    const baseUrl = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
     return `${baseUrl}${imagePath}`;
   }
 
