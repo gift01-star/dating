@@ -152,10 +152,15 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
-    console.log('[Messages] Sending message for matchId:', req.params.matchId);
+    console.log('[Messages] Sending message for matchId:', req.params.matchId, 'from userId:', req.userId);
 
     const match = await Match.findOne({ _id: req.params.matchId });
-    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!match) {
+      console.log('[Messages] Match not found:', req.params.matchId);
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    console.log('[Messages] Found match. User1:', match.user1, 'User2:', match.user2, 'Status:', match.status);
 
     const receiverId = String(match.user1) === req.userId ? match.user2 : match.user1;
 
@@ -163,11 +168,23 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
     const receiverUser = await User.findById(receiverId);
     const senderUser = await User.findById(req.userId);
 
+    if (!receiverUser) {
+      console.log('[Messages] Receiver user not found:', receiverId);
+      return res.status(404).json({ error: 'Receiver user not found' });
+    }
+
+    if (!senderUser) {
+      console.log('[Messages] Sender user not found:', req.userId);
+      return res.status(404).json({ error: 'Sender user not found' });
+    }
+
     if (receiverUser?.blocked && receiverUser.blocked.includes(req.userId)) {
+      console.log('[Messages] Receiver has blocked sender');
       return res.status(403).json({ error: 'You cannot send messages to this user (they have blocked you).' });
     }
 
     if (senderUser?.blocked && senderUser.blocked.includes(String(receiverId))) {
+      console.log('[Messages] Sender has blocked receiver');
       return res.status(403).json({ error: 'You cannot message a user you have blocked. Unblock them first to continue.' });
     }
 
@@ -186,14 +203,14 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
     });
 
     const newMessage = normalizeMsg(newMessageRaw);
-    console.log('[Messages] Message created:', newMessage._id);
+    console.log('[Messages] Message created successfully:', newMessage._id);
 
     res.status(201).json({
       message: 'Message sent',
       data: newMessage
     });
   } catch (error) {
-    console.error('[Messages] Error sending message:', error);
+    console.error('[Messages] Error sending message:', error.message || error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -201,10 +218,19 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
 // Get messages for a match
 router.get('/:matchId', verifyToken, async (req, res) => {
   try {
-    console.log('[Messages] Fetching messages for matchId:', req.params.matchId);
+    console.log('[Messages] Fetching messages for matchId:', req.params.matchId, 'userId:', req.userId);
     
     const match = await Match.findOne({ _id: req.params.matchId });
-    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!match) {
+      console.log('[Messages] Match not found:', req.params.matchId);
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    // Verify user is part of this match
+    if (String(match.user1) !== req.userId && String(match.user2) !== req.userId) {
+      console.log('[Messages] User not part of this match. User:', req.userId, 'Match users:', match.user1, match.user2);
+      return res.status(403).json({ error: 'You are not part of this match' });
+    }
 
     const rawMsgs = await Message.find({ matchId: req.params.matchId });
     const msgs = Array.isArray(rawMsgs) ? rawMsgs.map(normalizeMsg) : rawMsgs;

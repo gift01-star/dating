@@ -133,13 +133,13 @@ router.get('/discover', verifyToken, async (req, res) => {
 
     let allUsers = await User.find({});
     
-    // Filter users (default: only show users with a university — student-only platform)
+    // Filter users: show everyone except self and blocked users
+    // New users (without full profiles) are shown but with lower priority in sorting
     let filteredUsers = allUsers.filter(u => {
       // Compare as strings to handle ObjectId vs string mismatch
       if (String(u._id) === req.userId) return false;
       if (currentUser.blocked && currentUser.blocked.includes(u._id)) return false;
-      // Only show profiles that have university set to keep the platform student-focused
-      if (!u.university) return false;
+      // Apply optional filters: only exclude if the filter is specified and user doesn't match
       if (gender && u.gender !== gender) return false;
       if (university && u.university !== university) return false;
       if (location && u.location !== location) return false;
@@ -150,14 +150,49 @@ router.get('/discover', verifyToken, async (req, res) => {
       return true;
     });
 
-    // Prefer users with the same relationship goal as the current user to surface relevant results
-    if (currentUser.relationshipGoal) {
-      filteredUsers.sort((a, b) => {
-        const aMatch = a.relationshipGoal === currentUser.relationshipGoal ? 1 : 0;
-        const bMatch = b.relationshipGoal === currentUser.relationshipGoal ? 1 : 0;
-        return bMatch - aMatch; // put matching goals first
-      });
-    }
+    // Smart sorting: prioritize based on relevance and activity
+    // New users are shown but with lower priority
+    filteredUsers.sort((a, b) => {
+      // Compute online status for both users
+      const FIVE_MIN = 5 * 60 * 1000;
+      const aLastActive = a.lastActive ? new Date(a.lastActive).getTime() : 0;
+      const bLastActive = b.lastActive ? new Date(b.lastActive).getTime() : 0;
+      const aIsOnline = !!(a.active && aLastActive && (Date.now() - aLastActive) < FIVE_MIN);
+      const bIsOnline = !!(b.active && bLastActive && (Date.now() - bLastActive) < FIVE_MIN);
+
+      // First priority: Online users first
+      if (aIsOnline && !bIsOnline) return -1;
+      if (!aIsOnline && bIsOnline) return 1;
+
+      // Second priority: Users with university set (to keep platform student-focused)
+      const aHasUni = !!a.university;
+      const bHasUni = !!b.university;
+      if (aHasUni && !bHasUni) return -1;
+      if (!aHasUni && bHasUni) return 1;
+
+      // Third priority: Matching relationship goals
+      const aGoalMatch = a.relationshipGoal === currentUser.relationshipGoal ? 1 : 0;
+      const bGoalMatch = b.relationshipGoal === currentUser.relationshipGoal ? 1 : 0;
+      if (aGoalMatch !== bGoalMatch) return bGoalMatch - aGoalMatch;
+
+      // Fourth priority: Matching interests (count matching interests)
+      const currentUserInterests = (currentUser.interests || []).map(i => i.toLowerCase());
+      const aInterestMatches = (a.interests || []).filter(i => 
+        currentUserInterests.includes(i.toLowerCase())
+      ).length;
+      const bInterestMatches = (b.interests || []).filter(i => 
+        currentUserInterests.includes(i.toLowerCase())
+      ).length;
+      if (aInterestMatches !== bInterestMatches) return bInterestMatches - aInterestMatches;
+
+      // Fifth priority: Most recently active (accounts with more complete profiles and recent activity)
+      const aProfileCompletion = a.profileCompletion || 0;
+      const bProfileCompletion = b.profileCompletion || 0;
+      if (aProfileCompletion !== bProfileCompletion) return bProfileCompletion - aProfileCompletion;
+
+      // Final priority: Most recently active/created
+      return bLastActive - aLastActive;
+    });
 
     const pageNum = parseInt(page) || 1;
     const limit = 20;
@@ -172,6 +207,8 @@ router.get('/discover', verifyToken, async (req, res) => {
       
       return userObj;
     });
+
+    console.log('[Discover] Returning', users.length, 'profiles to user', req.userId, '(filtered from', filteredUsers.length, 'total)');
 
     res.json({
       users,

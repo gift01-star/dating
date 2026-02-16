@@ -208,6 +208,8 @@ function ChatPage({ user }) {
       setMessage('');
       await fetchMessages();
     } catch (err) {
+      console.error('[ChatPage] Error sending message - Status:', err.response?.status, 'Data:', err.response?.data);
+      
       // Profile completion errors
       const profileCompletion = err.response?.data?.profileCompletion;
       const required = err.response?.data?.required;
@@ -231,8 +233,15 @@ function ChatPage({ user }) {
         return;
       }
 
+      // Match not found
+      if (err.response?.status === 404) {
+        alert('❌ This conversation could not be found. The user may have deleted it.');
+        navigate('/matches');
+        return;
+      }
+
       console.error('[ChatPage] Error sending message:', err);
-      alert('Error sending message. Please try again.');
+      alert('❌ Error sending message: ' + (err.response?.data?.error || err.message || 'Please try again.'));
     }
   };
 

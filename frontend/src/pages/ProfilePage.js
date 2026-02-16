@@ -272,11 +272,16 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                 : 'text-green-700'
             }`}>
               {profileCompletion < 50 
-                ? `⚠️ Your profile is ${profileCompletion}% complete. You need at least 50% to access features.`
+                ? `⚠️ Your profile is ${profileCompletion}% complete. You're visible to others, but need 50% to use features.` 
                 : profileCompletion === 100 
                 ? '✅ Your profile is complete!' 
                 : `Good progress! Complete more to reach 100%`}
             </p>
+            {profileCompletion < 50 && (
+              <p className="text-xs text-gray-600 mt-2">
+                💡 You're appearing in other users' Discover feeds, but with lower priority. Complete your profile to appear higher in recommendations!
+              </p>
+            )}
           </div>
 
           {/* Tabs */}

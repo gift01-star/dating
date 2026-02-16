@@ -7,6 +7,25 @@ import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrender.com/api';
 
+// Helper to format last active time
+const formatLastActive = (lastActive) => {
+  if (!lastActive) return 'Just now';
+  
+  const date = new Date(lastActive);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 function DiscoverPage({ user }) {
   const [profiles, setProfiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -144,17 +163,21 @@ function DiscoverPage({ user }) {
 
       // Try to like/create match
       try {
+        console.log('[DiscoverPage] Creating match with profile:', profile._id);
         const likeResponse = await axios.post(`${API_URL}/matches/like/${profile._id}`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
         const matchId = likeResponse.data.match?._id;
+        console.log('[DiscoverPage] Match created successfully:', matchId);
         if (matchId) {
           navigate(`/chat/${matchId}`);
         } else {
+          console.error('[DiscoverPage] No matchId in response:', likeResponse.data);
           setError('Failed to create match. Try again.');
         }
       } catch (err) {
+        console.error('[DiscoverPage] Error creating match:', err.response?.status, err.response?.data);
         // Handle case where user already liked/matched
         if (err.response?.status === 400 && err.response?.data?.error?.includes('Already')) {
           // This user was already matched - try to find the match
@@ -328,6 +351,11 @@ function DiscoverPage({ user }) {
                   <p className={`text-sm font-medium mt-1 ${currentProfile.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
                     {currentProfile.isOnline ? '🟢 Online' : '⚪ Offline'}
                   </p>
+                  {!currentProfile.isOnline && currentProfile.lastActive && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Last active {formatLastActive(currentProfile.lastActive)}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   {currentProfile.verified && (
@@ -418,10 +446,6 @@ function DiscoverPage({ user }) {
             {error}
           </div>
         )}
-
-        <p className="text-center text-gray-600 text-sm mt-4">
-          {currentIndex + 1} / {profiles.length}
-        </p>
       </div>
 
       <BottomNavBar user={user} />

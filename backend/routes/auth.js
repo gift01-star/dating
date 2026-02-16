@@ -60,6 +60,7 @@ router.post('/register', async (req, res) => {
     });
 
     console.log('[Register] User created successfully:', user._id);
+    console.log('[Register] New user will appear in Discover with 0% profile completion - encourage them to complete profile for better visibility');
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
       expiresIn: process.env.JWT_EXPIRE || '7d'
@@ -68,7 +69,8 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: user.toJSON()
+      user: user.toJSON(),
+      infoMessage: 'Your profile is now visible to other users! Complete your profile to appear higher in recommendations.'
     });
   } catch (error) {
     console.error('[Register] Error:', error);
