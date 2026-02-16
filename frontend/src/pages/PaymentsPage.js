@@ -22,7 +22,16 @@ export default function PaymentsPage({ user }) {
     }
   }, []);
 
-  const sessionId = searchParams.get('sessionId');
+  const rawSessionId = searchParams.get('sessionId');
+  // Guard against providers or redirects that set sessionId to the literal string "undefined"
+  const sessionId = rawSessionId && rawSessionId !== 'undefined' ? rawSessionId : null;
+
+  useEffect(() => {
+    if (rawSessionId === 'undefined') {
+      console.warn('[PaymentsPage] Ignoring invalid sessionId=undefined from URL');
+      setError('Invalid payment session. Please try again.');
+    }
+  }, [rawSessionId]);
 
   const plans = [
     {

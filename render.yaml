@@ -22,9 +22,15 @@ services:
     name: edulove-frontend
     runtime: node
     buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npx serve -s build -l 3000
+    # Use the application's production Node server so built assets are served
+    # with correct MIME types and the SPA fallback works.
+    startCommand: cd frontend && npm run start:prod
     envVars:
       - key: REACT_APP_API_URL
         fromQuery: API_URL
+      - key: FRONTEND_URL
+        fromQuery: FRONTEND_URL
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "3000"

@@ -4,6 +4,21 @@ import { Message, Match, User } from '../database.js';
 
 const router = express.Router();
 
+// Normalize message rows (DB may return snake_case keys)
+function normalizeMsg(m) {
+  if (!m) return m;
+  return {
+    _id: m._id || m.id || m._id,
+    matchId: m.matchId || m.match_id || m.matchId,
+    senderId: m.senderId || m.sender_id || m.senderId,
+    receiverId: m.receiverId || m.receiver_id || m.receiverId,
+    message: m.message,
+    read: m.read,
+    readAt: m.readAt || m.read_at || null,
+    createdAt: m.createdAt || m.created_at || m.createdAt
+  };
+}
+
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -55,7 +70,8 @@ router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res
       if (!(String(m.user1) === req.userId || String(m.user2) === req.userId)) return null;
 
       // See if there are messages for this match
-      const msgs = await Message.find({ matchId: m._id });
+      const rawMsgs = await Message.find({ matchId: m._id });
+      const msgs = Array.isArray(rawMsgs) ? rawMsgs.map(normalizeMsg) : rawMsgs;
 
       // Include if matched or there are any messages
       if (m.status === 'matched' || (msgs && msgs.length > 0)) {
@@ -72,12 +88,10 @@ router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res
       const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
       const otherUser = await User.findById(otherUserId);
 
-      const messages = msgs || (await Message.find({ matchId: match._id }));
+      const messages = msgs || (await (async () => (await Message.find({ matchId: match._id })).map(normalizeMsg))());
       const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
-      const unreadCount = messages.filter(m => 
-        String(m.receiverId) === req.userId && !m.read
-      ).length;
+      const unreadCount = messages.filter(m => String(m.receiverId) === req.userId && !m.read).length;
 
       const userObj = otherUser ? otherUser.toJSON() : null;
       if (userObj) {
@@ -161,7 +175,7 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
     // (Legacy fields like subscription/messagesUnlocked/unlockedMatches are ignored)
     // We still record the message below as usual.
 
-    const newMessage = await Message.create({
+    const newMessageRaw = await Message.create({
       matchId: req.params.matchId,
       senderId: req.userId,
       receiverId,
@@ -171,6 +185,7 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
       createdAt: new Date()
     });
 
+    const newMessage = normalizeMsg(newMessageRaw);
     console.log('[Messages] Message created:', newMessage._id);
 
     res.status(201).json({
@@ -191,7 +206,8 @@ router.get('/:matchId', verifyToken, async (req, res) => {
     const match = await Match.findOne({ _id: req.params.matchId });
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
-    const msgs = await Message.find({ matchId: req.params.matchId });
+    const rawMsgs = await Message.find({ matchId: req.params.matchId });
+    const msgs = Array.isArray(rawMsgs) ? rawMsgs.map(normalizeMsg) : rawMsgs;
     console.log('[Messages] Found', msgs.length, 'messages');
 
     // Mark as read (persist using updateOne for in-memory DB compatibility)

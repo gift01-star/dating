@@ -431,7 +431,7 @@ function ChatPage({ user }) {
                       className={`flex ${String(msg.senderId) === String(localUser?._id) ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`group flex items-end gap-2 max-w-sm ${msg.senderId === localUser?._id ? 'flex-row-reverse' : 'flex-row'}`}
+                        className={`group flex items-end gap-2 max-w-sm ${String(msg.senderId) === String(localUser?._id) ? 'flex-row-reverse' : 'flex-row'}`}
                       >
                         {/* Message bubble */}
                         <div
@@ -442,7 +442,7 @@ function ChatPage({ user }) {
                           }`}
                         >
                           <p className="break-words text-sm md:text-base leading-relaxed">{msg.message}</p>
-                          <div className={`flex items-center gap-1 mt-1 text-xs ${msg.senderId === localUser?._id ? 'text-pink-100' : 'text-gray-500'}`}>
+                          <div className={`flex items-center gap-1 mt-1 text-xs ${String(msg.senderId) === String(localUser?._id) ? 'text-pink-100' : 'text-gray-500'}`}>
                             <span>{formatMessageTime(msg.createdAt)}</span>
                             {String(msg.senderId) === String(localUser?._id) && (
                               msg.read ? (
