@@ -18,17 +18,12 @@ function wrapRow(row) {
   const obj = { ...row };
   obj._id = String(row.id ?? row._id ?? row._id);
   delete obj.id;
-  // Normalize timestamp fields: accept both snake_case and camelCase
-  if (row.created_at && !obj.createdAt) obj.createdAt = row.created_at;
-  if (row.createdAt && !obj.created_at) obj.created_at = row.createdAt;
-  if (row.last_active && !obj.lastActive) obj.lastActive = row.last_active;
-  if (row.lastActive && !obj.last_active) obj.last_active = row.lastActive;
-  if (row.matched_at && !obj.matchedAt) obj.matchedAt = row.matched_at;
-  if (row.matchedAt && !obj.matched_at) obj.matched_at = row.matchedAt;
-  if (row.reset_token && !obj.resetToken) obj.resetToken = row.reset_token;
-  if (row.resetToken && !obj.reset_token) obj.reset_token = row.resetToken;
-  if (row.reset_expires && !obj.resetExpires) obj.resetExpires = row.reset_expires;
-  if (row.resetExpires && !obj.reset_expires) obj.reset_expires = row.resetExpires;
+  // Normalize snake_case DB fields to camelCase for application use
+  if (row.created_at) obj.createdAt = row.created_at;
+  if (row.last_active) obj.lastActive = row.last_active;
+  if (row.matched_at) obj.matchedAt = row.matched_at;
+  if (row.reset_token) obj.resetToken = row.reset_token;
+  if (row.reset_expires) obj.resetExpires = row.reset_expires;
   obj.toJSON = function () { const { password_hash, passwordHash, ...rest } = this; return rest; };
   return obj;
 }
@@ -258,12 +253,13 @@ export const User = usePostgres ? {
     const fields = [];
     const vals = [];
     let idx = 1;
+    let hasLastActive = false; // Track if last_active is being updated
     for (const origKey of Object.keys(data)) {
       let k = origKey;
       let val = data[origKey];
 
       // Map camelCase keys used in application code to snake_case DB columns
-      if (k === 'lastActive') k = 'last_active';
+      if (k === 'lastActive') { k = 'last_active'; hasLastActive = true; }
       if (k === 'createdAt') k = 'created_at';
       if (k === 'updatedAt') k = 'updated_at';
       if (k === 'messagesUnlocked') k = 'messages_unlocked';
@@ -288,7 +284,9 @@ export const User = usePostgres ? {
 
     if (fields.length === 0) return this.findById(id);
 
-    const q = `UPDATE users SET ${fields.join(', ')}, last_active = now() WHERE id = $${idx} RETURNING *`;
+    // Only auto-update last_active if it's not explicitly being set
+    const updateClause = hasLastActive ? fields.join(', ') : `${fields.join(', ')}, last_active = now()`;
+    const q = `UPDATE users SET ${updateClause} WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await pool.query(q, vals);
 
