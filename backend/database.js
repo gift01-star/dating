@@ -33,8 +33,12 @@ function wrapRow(row) {
   return obj;
 }
 
-const hashPassword = async (password) => bcrypt.hash(password, 10);
-const comparePassword = async (password, hash) => bcrypt.compare(password, hash);
+const hashPassword = async (password) =>{return await bcrypt.hash(password, 10);
+
+};
+const comparePassword = async (password, hash) => {return await bcrypt.compare(password, hash);
+  
+};
 
 // --- Postgres implementation helpers ---
 async function ensureTables() {
@@ -180,24 +184,9 @@ export const User = usePostgres ? {
     if (query.email) {
       // always normalize email casing for lookups
       const email = String(query.email).toLowerCase();
-      const cacheKey = `user:email:${email}`;
-      try {
-        const cached = await cache.get(cacheKey);
-        if (cached) {
-          // cached value is a JSON string of user.toJSON()
-          return JSON.parse(cached);
-        }
-      } catch (err) {
-        // ignore cache errors
-        console.warn('Cache read failed for', cacheKey, err.message || err);
-      }
-
+      // Don't cache user by email - password comparisons need the full hash
       const res = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
       const u = wrapRow(res.rows[0]);
-      if (u) {
-        // store JSON-serializable payload
-        try { await cache.set(cacheKey, JSON.stringify(u.toJSON ? u.toJSON() : u), 30); } catch (err) { /* ignore */ }
-      }
       return u;
     }
     if (query._id) {
