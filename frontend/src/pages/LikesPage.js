@@ -9,6 +9,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrend
 
 function LikesPage({ user }) {
   const [likes, setLikes] = useState([]);
+  const [view, setView] = useState('received'); // 'received' | 'sent'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [imageErrors, setImageErrors] = useState({});
@@ -17,6 +18,10 @@ function LikesPage({ user }) {
   useEffect(() => {
     fetchLikes();
   }, []);
+
+  useEffect(() => {
+    fetchLikes();
+  }, [view]);
 
   const handleImageError = (userId) => {
     setImageErrors(prev => ({ ...prev, [userId]: true }));
@@ -47,7 +52,8 @@ function LikesPage({ user }) {
         return;
       }
       
-      const response = await axios.get(`${API_URL}/matches/likes`, {
+      const endpoint = view === 'sent' ? `${API_URL}/matches/likes/sent` : `${API_URL}/matches/likes`;
+      const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -64,6 +70,21 @@ function LikesPage({ user }) {
       console.error('Error fetching likes:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancel = async (matchId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/matches/cancel-like/${matchId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Remove from likes list
+      setLikes(likes.filter(l => l._id !== matchId));
+      setError('');
+    } catch (err) {
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error cancelling like');
     }
   };
 
@@ -124,9 +145,25 @@ function LikesPage({ user }) {
           >
             <FaArrowLeft size={24} />
           </button>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <FaHeart className="text-red-500" /> Likes You Got
-          </h1>
+          <div className="flex flex-col items-center">
+            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+              <FaHeart className="text-red-500" /> {view === 'sent' ? 'Likes You Sent' : 'Likes You Got'}
+            </h1>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={() => setView('received')}
+                className={`px-3 py-1 rounded ${view === 'received' ? 'bg-pink-500 text-white' : 'bg-white text-gray-600 border'}`}
+              >
+                Received
+              </button>
+              <button
+                onClick={() => setView('sent')}
+                className={`px-3 py-1 rounded ${view === 'sent' ? 'bg-pink-500 text-white' : 'bg-white text-gray-600 border'}`}
+              >
+                Sent
+              </button>
+            </div>
+          </div>
           <div className="w-6"></div>
         </div>
 
@@ -208,18 +245,31 @@ function LikesPage({ user }) {
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => handleLikeBack(like._id)}
-                    className="flex-1 btn-primary flex items-center justify-center gap-2"
-                  >
-                    <FaHeart /> Like Back
-                  </button>
-                  <button
-                    onClick={() => handlePass(like._id)}
-                    className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition flex items-center justify-center gap-2"
-                  >
-                    <FaTimes /> Pass
-                  </button>
+                  {view === 'sent' ? (
+                    <>
+                      <button
+                        onClick={() => handleCancel(like._id)}
+                        className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition flex items-center justify-center gap-2"
+                      >
+                        <FaTimes /> Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleLikeBack(like._id)}
+                        className="flex-1 btn-primary flex items-center justify-center gap-2"
+                      >
+                        <FaHeart /> Like Back
+                      </button>
+                      <button
+                        onClick={() => handlePass(like._id)}
+                        className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition flex items-center justify-center gap-2"
+                      >
+                        <FaTimes /> Pass
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

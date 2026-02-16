@@ -158,6 +158,68 @@ router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
   }
 });
 
+// Get all likes SENT by current user (pending likes where user1 is current user)
+router.get('/likes/sent', verifyToken, requireMinimumProfile, async (req, res) => {
+  try {
+    const allMatches = await Match.find({});
+
+    const likesSent = allMatches.filter(m => {
+      return m.status === 'pending' && String(m.user1) === String(req.userId);
+    });
+
+    const likesWithUsers = await Promise.all(likesSent.map(async (like) => {
+      try {
+        const user = await User.findById(like.user2);
+        const userObj = user ? user.toJSON() : null;
+
+        if (userObj) {
+          const FIVE_MIN = 5 * 60 * 1000;
+          const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
+          userObj.isOnline = !!(userObj.active && lastActive && (Date.now() - lastActive) < FIVE_MIN);
+        }
+
+        return {
+          ...like.toJSON(),
+          user: userObj
+        };
+      } catch (err) {
+        console.error('Error processing sent like:', err);
+        return null;
+      }
+    })).then(results => results.filter(Boolean));
+
+    // Sort by online status then recency
+    const sorted = likesWithUsers.sort((a, b) => {
+      if (a.user?.isOnline && !b.user?.isOnline) return -1;
+      if (!a.user?.isOnline && b.user?.isOnline) return 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    res.json({ likes: sorted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel a like sent by the current user
+router.post('/cancel-like/:matchId', verifyToken, requireMinimumProfile, async (req, res) => {
+  try {
+    const match = await Match.findOne({ _id: req.params.matchId });
+    if (!match) return res.status(404).json({ error: 'Like not found' });
+
+    if (String(match.user1) !== String(req.userId)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Mark as rejected/cancelled
+    await Match.findOneAndUpdate({ _id: match._id }, { status: 'rejected' });
+
+    res.json({ message: 'Like cancelled' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get matches
 router.get('/', verifyToken, async (req, res) => {
   try {
