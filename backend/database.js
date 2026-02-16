@@ -77,22 +77,14 @@ async function ensureTables() {
     );
 
 
-    -- Ensure dob and location columns exist on older schemas
+    -- Ensure additional columns exist on older schemas
     ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS height INTEGER DEFAULT 0;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS "bodyType" TEXT DEFAULT '';
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS year TEXT ;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS profileimage TEXT DEFAULT '';
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS "relationshipGoal" TEXT DEFAULT 'Dating';
-    ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP DEFAULT now();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "profileCompletion" INTEGER DEFAULT 0;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT now();
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active TIMESTAMP DEFAULT now();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetToken" TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetExpires" TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+    ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
 
 
 
