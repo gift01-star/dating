@@ -98,10 +98,10 @@ router.post('/login', async (req, res) => {
     }
 
     console.log('[Login] User found:', user.name, '- Checking password...');
-    console.log('[Login] User has passwordHash:', !!user.passwordHash);
+    console.log('[Login] User has password:', !!user.password);
 
-    // Use the User-level comparePassword helper
-    const isPasswordValid = await User.comparePassword(email, password);
+    // Use instance comparePassword helper on the found user
+    const isPasswordValid = await user.comparePassword(password);
     console.log('[Login] Password valid result:', isPasswordValid);
     
     if (!isPasswordValid) {
