@@ -428,7 +428,7 @@ function ChatPage({ user }) {
                   {dateGroup.messages.map((msg) => (
                     <div
                       key={msg._id}
-                      className={`flex ${msg.senderId === localUser?._id ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${String(msg.senderId) === String(localUser?._id) ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
                         className={`group flex items-end gap-2 max-w-sm ${msg.senderId === localUser?._id ? 'flex-row-reverse' : 'flex-row'}`}
@@ -436,7 +436,7 @@ function ChatPage({ user }) {
                         {/* Message bubble */}
                         <div
                           className={`px-4 py-2 rounded-2xl shadow-sm transition ${
-                            msg.senderId === localUser?._id
+                            String(msg.senderId) === String(localUser?._id)
                               ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-tr-none'
                               : 'bg-gray-100 text-gray-900 rounded-tl-none'
                           }`}
@@ -444,7 +444,7 @@ function ChatPage({ user }) {
                           <p className="break-words text-sm md:text-base leading-relaxed">{msg.message}</p>
                           <div className={`flex items-center gap-1 mt-1 text-xs ${msg.senderId === localUser?._id ? 'text-pink-100' : 'text-gray-500'}`}>
                             <span>{formatMessageTime(msg.createdAt)}</span>
-                            {msg.senderId === localUser?._id && (
+                            {String(msg.senderId) === String(localUser?._id) && (
                               msg.read ? (
                                 <FaCheckDouble size={12} className="text-blue-300" title="Read" />
                               ) : (

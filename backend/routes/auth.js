@@ -100,8 +100,19 @@ router.post('/login', async (req, res) => {
     console.log('[Login] User found:', user.name, '- Checking password...');
     console.log('[Login] User has password:', !!user.password);
 
-    // Use instance comparePassword helper on the found user
-    const isPasswordValid = await user.comparePassword(password);
+    // Compare password: prefer DB-level helper (for Postgres implementation),
+    // otherwise use instance method if present (for mongoose-style models).
+    let isPasswordValid = false;
+    if (User && typeof User.comparePassword === 'function') {
+      isPasswordValid = await User.comparePassword(email, password);
+    } else if (user && typeof user.comparePassword === 'function') {
+      isPasswordValid = await user.comparePassword(password);
+    } else if (user && (user.passwordHash || user.password_hash)) {
+      // Last-resort: directly compare using bcrypt if hash is present on object
+      const bcrypt = await import('bcryptjs');
+      const hash = user.passwordHash || user.password_hash;
+      isPasswordValid = await bcrypt.compare(password, hash);
+    }
     console.log('[Login] Password valid result:', isPasswordValid);
     
     if (!isPasswordValid) {
