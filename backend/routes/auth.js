@@ -36,6 +36,10 @@ router.post('/register', async (req, res) => {
       email,
       password,
       relationshipGoal: relationshipGoal || 'Dating',
+      // Automatically mark email as verified for quick onboarding
+      verified: true,
+      verificationMethod: 'email',
+      verificationDate: new Date(),
       // Initialize all profile fields to match users.js structure
       nickname: '',
       gender: '',
