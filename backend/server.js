@@ -319,10 +319,33 @@ app.post('/api/users/upload-photo', upload.single('photo'), async (req, res) => 
 
     await User.updateOne({ _id: user._id }, { photos: user.photos });
 
+    // Update profileCompletion after photo change
+    const completionFields = [
+      !!user.nickname,
+      !!user.gender,
+      !!user.dob,
+      !!user.university,
+      !!user.course,
+      !!user.year,
+      (user.interests && user.interests.length > 0),
+      !!user.bio,
+      !!user.location,
+      (user.photos && user.photos.length > 0),
+      !!user.relationshipGoal
+    ];
+    const completedCount = completionFields.filter(Boolean).length;
+    const profilePercentage = Math.round((completedCount / completionFields.length) * 100);
+    
+    await User.updateOne({ _id: user._id }, { profileCompletion: profilePercentage });
+
+    // Fetch updated user to return photos and completion
+    const updatedUser = await User.findById(user._id);
+
     res.json({
       message: 'Photo uploaded successfully',
-      photo: user.photos[user.photos.length - 1],
-      photos: user.photos
+      photo: updatedUser.photos[updatedUser.photos.length - 1],
+      photos: updatedUser.photos,
+      user: updatedUser.toJSON()
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

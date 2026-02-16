@@ -10,6 +10,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrend
 function DiscoverPage({ user }) {
   const [profiles, setProfiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [photoIndex, setPhotoIndex] = useState(0); // Track which photo to display
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [imageError, setImageError] = useState(false);
@@ -86,6 +87,7 @@ function DiscoverPage({ user }) {
       });
 
       setCurrentIndex(prev => prev + 1);
+      setPhotoIndex(0); // Reset to first photo for new profile
       setImageError(false);
     } catch (err) {
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error liking profile');
@@ -104,9 +106,79 @@ function DiscoverPage({ user }) {
       });
 
       setCurrentIndex(prev => prev + 1);
+      setPhotoIndex(0); // Reset to first photo for new profile
       setImageError(false);
     } catch (err) {
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error passing profile');
+    }
+  };
+
+  const handleNavigateToChat = async () => {
+    if (currentIndex >= profiles.length) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const profile = profiles[currentIndex];
+
+      // Try to find existing match
+      try {
+        const matchResponse = await axios.get(`${API_URL}/matches`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // matchResponse.data is an array of matches
+        const matches = Array.isArray(matchResponse.data) ? matchResponse.data : matchResponse.data.matches || [];
+        const existingMatch = matches.find(m => 
+          (String(m.user?._id) === profile._id) ||
+          (String(m._id) === profile._id) // fallback
+        );
+
+        if (existingMatch) {
+          navigate(`/chat/${existingMatch._id}`);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking for existing match:', err);
+        // Continue to create new match if checking fails
+      }
+
+      // Try to like/create match
+      try {
+        const likeResponse = await axios.post(`${API_URL}/matches/like/${profile._id}`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const matchId = likeResponse.data.match?._id;
+        if (matchId) {
+          navigate(`/chat/${matchId}`);
+        } else {
+          setError('Failed to create match. Try again.');
+        }
+      } catch (err) {
+        // Handle case where user already liked/matched
+        if (err.response?.status === 400 && err.response?.data?.error?.includes('Already')) {
+          // This user was already matched - try to find the match
+          try {
+            const matchResponse = await axios.get(`${API_URL}/matches`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const matches = Array.isArray(matchResponse.data) ? matchResponse.data : matchResponse.data.matches || [];
+            const match = matches.find(m => String(m.user?._id) === profile._id);
+            if (match) {
+              navigate(`/chat/${match._id}`);
+              return;
+            }
+          } catch (e) {
+            console.error('Error finding existing match:', e);
+          }
+          setError('You already matched with this user. Check your messages!');
+        } else if (!handleForbiddenRedirect(err)) {
+          setError(err.response?.data?.error || 'Error creating match');
+        }
+      }
+    } catch (err) {
+      console.error('Error in handleNavigateToChat:', err);
+      setError('Something went wrong. Try again.');
     }
   };
 
@@ -207,14 +279,32 @@ function DiscoverPage({ user }) {
               {currentProfile.photos && currentProfile.photos.length > 0 && !imageError ? (
                 <>
                   <img
-                    src={getImageUrl(currentProfile.photos[0].url)}
+                    src={getImageUrl(currentProfile.photos[photoIndex]?.url || currentProfile.photos[0]?.url)}
                     alt={currentProfile.name}
                     className="w-full h-full object-cover"
                     onError={() => setImageError(true)}
                   />
+                  {/* Previous Photo Button */}
+                  {currentProfile.photos.length > 1 && photoIndex > 0 && (
+                    <button
+                      onClick={() => setPhotoIndex(prev => Math.max(0, prev - 1))}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition"
+                    >
+                      ◀
+                    </button>
+                  )}
+                  {/* Next Photo Button */}
+                  {currentProfile.photos.length > 1 && photoIndex < currentProfile.photos.length - 1 && (
+                    <button
+                      onClick={() => setPhotoIndex(prev => Math.min(currentProfile.photos.length - 1, prev + 1))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition"
+                    >
+                      ▶
+                    </button>
+                  )}
                   {currentProfile.photos.length > 1 && (
                     <div className="absolute top-3 right-3 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
-                      1/{currentProfile.photos.length}
+                      {photoIndex + 1}/{currentProfile.photos.length}
                     </div>
                   )}
                 </>
@@ -315,7 +405,7 @@ function DiscoverPage({ user }) {
             <FaHeart size={24} />
           </button>
           <button
-            onClick={() => navigate(`/chat/${currentProfile._id}`)}
+            onClick={handleNavigateToChat}
             className="w-16 h-16 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition flex items-center justify-center shadow-lg"
             title="Send Message"
           >

@@ -175,7 +175,15 @@ function ChatPage({ user }) {
         navigate('/profile');
         return;
       }
-      console.error('[ChatPage] Error fetching messages:', err);
+      
+      // Handle invalid matchId gracefully
+      if (err.response?.status === 404) {
+        console.error('[ChatPage] Match not found:', matchId);
+        // Don't show error, just show empty state
+        setMessages([]);
+      } else {
+        console.error('[ChatPage] Error fetching messages:', err);
+      }
     } finally {
       setLoading(false);
     }
