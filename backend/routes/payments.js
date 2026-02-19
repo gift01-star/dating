@@ -157,19 +157,22 @@ router.post('/create-session', authenticate, async (req, res) => {
     const paySecret = process.env.PAYCHANGU_SECRET;
     const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
+    console.info('[create-session] Paychangu config:', { hasSecret: !!paySecret, apiBase: payApiBase });
+
     if (paySecret && paySecret !== 'SEC-TEST-n6Lrit76RMMNaXOHeum60HSKTQrKAUWe') {
       try {
         const payloadForPaychangu = {
           amount: plan.amount,
-          currency: plan.currency,
+          currency: plan.currency || 'USD',
+          email: req.user.email,
           reference: payment._id,
-          metadata: { userId: req.user._id, planId: plan.id },
+          callback_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/webhook`,
           return_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`
         };
 
-        console.info('[create-session] Calling Paychangu API', { endpoint: `${payApiBase}/v1/payments`, paySecret: paySecret ? '***' : 'MISSING' });
+        console.info('[create-session] Calling Paychangu API', { endpoint: `${payApiBase}/v1/transaction/initialize`, paySecret: paySecret ? '***' : 'MISSING' });
 
-        const response = await fetch(`${payApiBase}/v1/payments`, {
+        const response = await fetch(`${payApiBase}/v1/transaction/initialize`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -184,12 +187,12 @@ router.post('/create-session', authenticate, async (req, res) => {
         let data = {};
         try { data = JSON.parse(responseText); } catch (e) { data = { error: responseText }; }
 
-        // Determine checkout URL from common response shapes
-        const checkoutUrlFromProvider = data?.checkoutUrl || data?.url || data?.checkout?.url || data?.redirect_url;
+        // Determine checkout URL from Paychangu response
+        const checkoutUrlFromProvider = data?.redirect_url || data?.link || data?.checkout_url || data?.url;
 
         if (response.ok && checkoutUrlFromProvider) {
-          console.info('[create-session] Paychangu checkout URL received:', { checkoutUrl: checkoutUrlFromProvider, externalId: data.id });
-          await Payment.updateOne({ _id: payment._id }, { externalId: data.id || data.paymentId || null, externalData: data, externalCheckoutUrl: checkoutUrlFromProvider });
+          console.info('[create-session] Paychangu checkout URL received:', { checkoutUrl: checkoutUrlFromProvider });
+          await Payment.updateOne({ _id: payment._id }, { externalId: data.id || data.reference || null, externalData: data, externalCheckoutUrl: checkoutUrlFromProvider, provider: 'paychangu' });
           return res.json({ checkoutUrl: checkoutUrlFromProvider, paymentId: payment._id });
         } else {
           console.warn('[create-session] Paychangu API call failed:', { status: response.status, data });
