@@ -17,10 +17,24 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Check if admin (placeholder - implement proper admin role)
+// Check if admin (supports user.role==='admin', user.isAdmin, or ADMIN_EMAILS env)
 const isAdmin = async (req, res, next) => {
-  // TODO: Add proper admin role check
-  next();
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(403).json({ error: 'Forbidden' });
+
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    const isEnvAdmin = adminEmails.length && adminEmails.includes((user.email || '').toLowerCase());
+
+    if (user.isAdmin || user.role === 'admin' || isEnvAdmin) {
+      return next();
+    }
+
+    return res.status(403).json({ error: 'Forbidden' });
+  } catch (err) {
+    console.error('Admin check error', err && err.message ? err.message : err);
+    return res.status(500).json({ error: 'Admin check failed' });
+  }
 };
 
 // Get all unverified users
@@ -39,16 +53,9 @@ router.get('/users/unverified', verifyToken, isAdmin, async (req, res) => {
 router.put('/users/:id/verify', verifyToken, isAdmin, async (req, res) => {
   try {
     const { verificationMethod } = req.body;
-
-    const user = await User.updateOne(
-      { _id: req.params.id },
-      {
-        verified: true,
-        verificationMethod
-      }
-    );
-
-    res.json({ message: 'User verified', user: user.toJSON() });
+    const updated = await User.updateOne({ _id: req.params.id }, { verified: true, verificationMethod });
+    const userJson = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
+    res.json({ message: 'User verified', user: userJson });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -57,12 +64,9 @@ router.put('/users/:id/verify', verifyToken, isAdmin, async (req, res) => {
 // Reject user verification
 router.put('/users/:id/reject', verifyToken, isAdmin, async (req, res) => {
   try {
-    await User.updateOne(
-      { _id: req.params.id },
-      { active: false }
-    );
-
-    res.json({ message: 'User rejected' });
+    const updated = await User.updateOne({ _id: req.params.id }, { active: false });
+    const userJson = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
+    res.json({ message: 'User rejected', user: userJson });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -71,12 +75,9 @@ router.put('/users/:id/reject', verifyToken, isAdmin, async (req, res) => {
 // Ban user
 router.put('/users/:id/ban', verifyToken, isAdmin, async (req, res) => {
   try {
-    const user = await User.updateOne(
-      { _id: req.params.id },
-      { active: false }
-    );
-
-    res.json({ message: 'User banned', user: user.toJSON() });
+    const updated = await User.updateOne({ _id: req.params.id }, { active: false });
+    const userJson = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
+    res.json({ message: 'User banned', user: userJson });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -86,9 +87,7 @@ router.put('/users/:id/ban', verifyToken, isAdmin, async (req, res) => {
 router.get('/reports', verifyToken, isAdmin, async (req, res) => {
   try {
     const reports = await Report.find();
-    
-    const formattedReports = reports.map(r => r.toJSON()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
+    const formattedReports = (reports || []).map(r => (typeof r.toJSON === 'function' ? r.toJSON() : r)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.json(formattedReports);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -100,20 +99,10 @@ router.put('/reports/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const { status, action, notes } = req.body;
 
-    const report = await Report.findOneAndUpdate(
-      { _id: req.params.id },
-      {
-        status,
-        action,
-        notes,
-        resolvedAt: new Date(),
-        resolvedBy: req.userId
-      }
-    );
-
+    const report = await Report.findOneAndUpdate({ _id: req.params.id }, { status, action, notes, resolvedAt: new Date(), resolvedBy: req.userId });
     // If action is ban, update user
     if (action === 'banned') {
-      await User.updateOne({ _id: report.reportedUser }, { active: false });
+      await User.updateOne({ _id: report.reportedUser || report.reported_user || report.reportedUserId }, { active: false });
     }
 
     res.json({ message: 'Report resolved', report });
@@ -125,8 +114,7 @@ router.put('/reports/:id', verifyToken, isAdmin, async (req, res) => {
 // Get dashboard stats
 router.get('/stats', verifyToken, isAdmin, async (req, res) => {
   try {
-    const stats = getStats();
-
+    const stats = await getStats();
     res.json(stats);
   } catch (error) {
     res.status(500).json({ error: error.message });

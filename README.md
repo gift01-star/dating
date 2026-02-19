@@ -229,3 +229,32 @@ Reply with your choice number (1, 2, 3, or 4) to begin building! 🚀
 
 **Project Status:** Planning Phase ✓
 **Last Updated:** January 15, 2026
+
+---
+
+## Enabling real payments (Paychangu / Changu)
+
+To enable production payments with Paychangu (also referenced as "Changu"), set the provider credentials in your backend environment and configure your webhook endpoint so Paychangu can notify your app of payment events.
+
+- **Backend .env**: Copy `backend/.env.example` to `backend/.env` and fill the keys below:
+  - `PAYMENTS_ENABLED=true`
+  - `PAYCHANGU_SECRET` — your Paychangu API secret (starts with `SEC-`)
+  - `PAYCHANGU_API_BASE` — optional (defaults to `https://api.paychangu.com`)
+  - `PAYCHANGU_WEBHOOK_SECRET` — webhook signing secret used to verify incoming webhooks
+  - `FRONTEND_URL` / `BACKEND_URL` — set these so checkout return URLs redirect correctly
+
+- **Webhook URL**: Configure your Paychangu webhook to POST to:
+
+  <BACKEND_URL>/api/payments/webhook
+
+  The backend verifies signatures against `PAYCHANGU_WEBHOOK_SECRET`. Ensure the webhook path is reachable from Paychangu (use ngrok in local development or set up the correct DNS/HTTPS in production).
+
+- **Testing locally**:
+  1. Start your backend with the `.env` values set.
+  2. Use the Payments page in the frontend to create a session; you will be redirected to Paychangu's hosted checkout.
+  3. After completing checkout, Paychangu will redirect back to the backend return route which forwards to the frontend with `sessionId`.
+  4. The frontend polls `/api/payments/sessions/:id` to confirm status.
+
+- **Notes**:
+  - The backend falls back to Flutterwave if configured; if neither provider keys are set, the app uses local test flows.
+  - Keep your webhook secret and API keys private and rotate them periodically.

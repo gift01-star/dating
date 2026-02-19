@@ -72,6 +72,16 @@ function AdminDashboard() {
     }
   };
 
+  const handleResolveReport = async (reportId, action) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${API_URL}/admin/reports/${reportId}`, { status: 'resolved', action, notes: `Resolved by admin: ${action}` }, { headers: { Authorization: `Bearer ${token}` } });
+      setReports(prev => prev.map(r => r._id === reportId ? { ...r, status: 'resolved', action } : r));
+    } catch (err) {
+      console.error('Error resolving report:', err);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
@@ -213,19 +223,28 @@ function AdminDashboard() {
                     {reports.map(report => (
                       <tr key={report._id} className="border-b hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-800">
-                          {report.reportedUser?.name || 'Unknown'}
+                          {report.reportedUser?.name || report.reportedUser || 'Unknown'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{report.reason}</td>
                         <td className="px-6 py-4 text-sm">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            report.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : report.status === 'resolved'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {report.status}
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              report.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : report.status === 'resolved'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {report.status}
+                            </span>
+                            <div className="space-x-2">
+                              <button onClick={() => handleResolveReport(report._id, 'closed')} className="text-sm text-green-600 hover:text-green-800">Resolve</button>
+                              <button onClick={() => handleResolveReport(report._id, 'banned')} className="text-sm text-red-600 hover:text-red-800">Resolve & Ban</button>
+                              {report.reportedUser && (
+                                <button onClick={() => navigate(`/profile/${report.reportedUser}`)} className="text-sm text-blue-600 hover:text-blue-800">View Profile</button>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {new Date(report.createdAt).toLocaleDateString()}

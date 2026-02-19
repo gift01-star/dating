@@ -115,6 +115,20 @@ async function ensureTables() {
       external_data JSONB,
       created_at TIMESTAMP DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      reporter_id TEXT,
+      reported_user TEXT,
+      reason TEXT,
+      notes TEXT,
+      status TEXT DEFAULT 'open',
+      action TEXT,
+      metadata JSONB,
+      resolved_at TIMESTAMP,
+      resolved_by TEXT,
+      created_at TIMESTAMP DEFAULT now()
+    );
   `);
 }
 
@@ -184,7 +198,14 @@ export const User = usePostgres ? {
   },
   async findById(id) {
     const res = await pool.query('SELECT * FROM users WHERE id = $1 LIMIT 1', [id]);
-    return wrapRow(res.rows[0]);
+    const row = wrapRow(res.rows[0]);
+    if (row) {
+      if (row.reported_user) row.reportedUser = row.reported_user;
+      if (row.reporter_id) row.reporterId = row.reporter_id;
+      if (row.resolved_at) row.resolvedAt = row.resolved_at;
+      if (row.resolved_by) row.resolvedBy = row.resolved_by;
+    }
+    return row;
   },
   async find(query = {}) {
     if (query.verified !== undefined) {
@@ -596,13 +617,96 @@ export const Message = usePostgres ? {
 
 export const Report = usePostgres ? {
   async create(data) {
-    const id = String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
-    const res = await pool.query('INSERT INTO payments(id, user_id, plan_id, amount, currency, status, match_id, external_data) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [id, data.userId, data.planId, data.amount, data.currency, data.status || 'pending', data.matchId, data.externalData || null]);
-    return res.rows[0];
+    const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
+    const res = await pool.query('INSERT INTO reports(id, reporter_id, reported_user, reason, notes, status, action, metadata, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) RETURNING *', [id, data.reporterId || data.userId || null, data.reportedUser || data.reported_user || data.reportedUserId || null, data.reason || null, data.notes || null, data.status || 'open', data.action || null, data.metadata || null]);
+    return wrapRow(res.rows[0]);
+  },
+  async find(query = {}) {
+    const where = [];
+    const vals = [];
+    let idx = 1;
+    if (query.reporterId) { vals.push(query.reporterId); where.push(`reporter_id = $${idx++}`); }
+    if (query.reportedUser) { vals.push(query.reportedUser); where.push(`reported_user = $${idx++}`); }
+    if (query.status) { vals.push(query.status); where.push(`status = $${idx++}`); }
+
+    let q = 'SELECT * FROM reports';
+    if (where.length) q += ' WHERE ' + where.join(' AND ');
+    const res = await pool.query(q, vals);
+    return res.rows.map(r => {
+      const obj = wrapRow(r);
+      if (obj) {
+        if (obj.reported_user) obj.reportedUser = obj.reported_user;
+        if (obj.reporter_id) obj.reporterId = obj.reporter_id;
+        if (obj.resolved_at) obj.resolvedAt = obj.resolved_at;
+        if (obj.resolved_by) obj.resolvedBy = obj.resolved_by;
+      }
+      return obj;
+    });
+  },
+  async findById(id) {
+    const res = await pool.query('SELECT * FROM reports WHERE id = $1 LIMIT 1', [id]);
+    const row = wrapRow(res.rows[0]);
+    if (row) {
+      if (row.reported_user) row.reportedUser = row.reported_user;
+      if (row.reporter_id) row.reporterId = row.reporter_id;
+      if (row.resolved_at) row.resolvedAt = row.resolved_at;
+      if (row.resolved_by) row.resolvedBy = row.resolved_by;
+    }
+    return row;
+  },
+  async findOneAndUpdate(query, data) {
+    const id = query._id || query.id;
+    if (!id) throw new Error('findOneAndUpdate requires _id');
+    const updates = [];
+    const vals = [];
+    let idx = 1;
+    for (const key of Object.keys(data)) {
+      let dbKey = key;
+      if (key === 'resolvedAt') dbKey = 'resolved_at';
+      if (key === 'resolvedBy') dbKey = 'resolved_by';
+      updates.push(`"${dbKey}" = $${idx}`);
+      vals.push(data[key]);
+      idx++;
+    }
+    const q = `UPDATE reports SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`;
+    vals.push(id);
+    const res = await pool.query(q, vals);
+    const row = wrapRow(res.rows[0]);
+    if (row) {
+      if (row.reported_user) row.reportedUser = row.reported_user;
+      if (row.reporter_id) row.reporterId = row.reporter_id;
+      if (row.resolved_at) row.resolvedAt = row.resolved_at;
+      if (row.resolved_by) row.resolvedBy = row.resolved_by;
+    }
+    return row;
   }
-} : {
-  create: async (data) => ({ _id: 'r1', ...data, status: 'open', createdAt: new Date(), toJSON: () => ({...data}) })
-};
+} : (function(){
+  let reports = [];
+  let idCounter = 1;
+  return {
+    create: async (data) => {
+      const r = { _id: String(idCounter++), reporterId: data.reporterId || data.userId || null, reportedUser: data.reportedUser || data.reported_user || data.reportedUserId || null, reason: data.reason || null, notes: data.notes || null, status: data.status || 'open', action: data.action || null, metadata: data.metadata || null, createdAt: new Date(), toJSON() { return { ...this }; } };
+      reports.push(r);
+      return r;
+    },
+    find: async (query = {}) => {
+      return reports.filter(r => {
+        if (query.reporterId && r.reporterId !== query.reporterId) return false;
+        if (query.reportedUser && r.reportedUser !== query.reportedUser) return false;
+        if (query.status && r.status !== query.status) return false;
+        return true;
+      }).map(r => ({ ...r, toJSON() { return { ...this }; } }));
+    },
+    findById: async (id) => reports.find(r => r._id === id) || null,
+    findOneAndUpdate: async (query, data) => {
+      const id = query._id || query.id;
+      const r = reports.find(rr => rr._id === id);
+      if (!r) throw new Error('Report not found');
+      Object.assign(r, data);
+      return r;
+    }
+  };
+})();
 
 export const Payment = usePostgres ? {
   async create(data) {
@@ -655,11 +759,18 @@ export const clearDatabase = () => {
 export const getStats = async () => {
   if (usePostgres) {
     const usersRes = await pool.query('SELECT count(*) from users');
+    const verifiedRes = await pool.query('SELECT count(*) from users WHERE verified = true');
+    const bannedRes = await pool.query('SELECT count(*) from users WHERE active = false');
     const matchesRes = await pool.query('SELECT count(*) from matches');
     const messagesRes = await pool.query('SELECT count(*) from messages');
     const paymentsRes = await pool.query('SELECT count(*) from payments');
+    const pendingReportsRes = await pool.query("SELECT count(*) from reports WHERE status = 'open' OR status = 'pending'");
+
     return {
       totalUsers: Number(usersRes.rows[0].count),
+      verifiedUsers: Number(verifiedRes.rows[0].count),
+      bannedUsers: Number(bannedRes.rows[0].count),
+      pendingReports: Number(pendingReportsRes.rows[0].count),
       totalMatches: Number(matchesRes.rows[0].count),
       totalMessages: Number(messagesRes.rows[0].count),
       totalPayments: Number(paymentsRes.rows[0].count)
