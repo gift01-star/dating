@@ -167,9 +167,9 @@ router.post('/create-session', authenticate, async (req, res) => {
           return_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`
         };
 
-        console.info('[create-session] Calling Paychangu API', { endpoint: `${payApiBase}/v1/checkout/sessions`, paySecret: paySecret ? '***' : 'MISSING' });
+        console.info('[create-session] Calling Paychangu API', { endpoint: `${payApiBase}/v1/payments`, paySecret: paySecret ? '***' : 'MISSING' });
 
-        const response = await fetch(`${payApiBase}/v1/checkout/sessions`, {
+        const response = await fetch(`${payApiBase}/v1/payments`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
