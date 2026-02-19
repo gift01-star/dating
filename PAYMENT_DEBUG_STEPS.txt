@@ -1,0 +1,34 @@
+Quick Debug Steps for sessionId=undefined Error
+================================================
+
+1. Check Render Backend Logs:
+   - Open https://dashboard.render.com → Backend Service → Logs
+   - Search for: "/api/payments/return called with query:"
+   - This tells you EXACTLY what Paychangu sent back
+
+2. If you DON'T see that log line:
+   - Paychangu is not redirecting to your backend
+   - Check Paychangu dashboard > Webhooks/Settings
+   - Verify return_url is set to: https://<your-backend>.onrender.com/api/payments/return
+   - Test the URL in a browser to confirm it's reachable
+
+3. If you DO see that log line:
+   - Look at the query parameters shown
+   - Check if paymentId matches what you created
+   - If "Payment not found" log appears, the IDs don't match
+
+4. Test Payment Creation Locally:
+   TOKEN="<your-jwt-token>"
+   curl -X POST https://edu-love-backend.onrender.com/api/payments/create-session \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"planId":"basic","provider":"paychangu"}'
+   
+   Expected response shows paymentId like: "1708372800123-abc123"
+   This is what Paychangu SHOULD send back in the redirect.
+
+5. Verify PAYMENTS_ENABLED=true in Render backend env vars
+
+6. Check that PAYCHANGU_SECRET is set correctly (not test key)
+
+If still stuck: Share the Render backend logs from steps 1-3 above.
