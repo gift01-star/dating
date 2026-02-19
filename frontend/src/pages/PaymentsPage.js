@@ -25,13 +25,21 @@ export default function PaymentsPage({ user }) {
   const rawSessionId = searchParams.get('sessionId');
   // Guard against providers or redirects that set sessionId to the literal string "undefined"
   const sessionId = rawSessionId && rawSessionId !== 'undefined' ? rawSessionId : null;
+  const errorParam = searchParams.get('error');
 
   useEffect(() => {
     if (rawSessionId === 'undefined') {
       console.warn('[PaymentsPage] Ignoring invalid sessionId=undefined from URL');
-      setError('Invalid payment session. Please try again.');
+      setError('❌ Invalid payment session (undefined ID). Please try creating a new payment.');
     }
   }, [rawSessionId]);
+
+  useEffect(() => {
+    if (errorParam === 'missing_session') {
+      console.error('[PaymentsPage] Backend returned error: payment session not found');
+      setError('❌ Payment session not found or expired. Please try again or contact support.');
+    }
+  }, [errorParam]);
 
   const plans = [
     {
@@ -118,14 +126,24 @@ export default function PaymentsPage({ user }) {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      console.log('[PaymentsPage] Got checkout URL:', response.data.checkoutUrl);
+      console.log('[PaymentsPage] Backend response:', response.data);
+      const { checkoutUrl, paymentId } = response.data;
 
-      if (response.data.checkoutUrl) {
-        // Redirect to Paychangu checkout
-        window.location.href = response.data.checkoutUrl;
-      } else {
+      if (!checkoutUrl) {
+        console.error('[PaymentsPage] No checkoutUrl in response:', response.data);
         setError('Failed to create checkout session. Please try again.');
+        return;
       }
+
+      if (!paymentId || paymentId === 'undefined') {
+        console.error('[PaymentsPage] CRITICAL: paymentId is missing or undefined!', { checkoutUrl, paymentId });
+        setError('Payment session creation failed. Please contact support.');
+        return;
+      }
+
+      console.log('[PaymentsPage] Redirecting to checkout:', { checkoutUrl, paymentId });
+      // Redirect to provider checkout
+      window.location.href = checkoutUrl;
     } catch (err) {
       console.error('[PaymentsPage] Payment error:', err.response?.status, err.response?.data || err.message);
       if (err.response?.status === 403) {

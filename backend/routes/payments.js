@@ -99,6 +99,12 @@ router.post('/create-session', authenticate, async (req, res) => {
       status: 'pending',
       matchId: matchId || null
     });
+    
+    if (!payment || !payment._id) {
+      console.error('[create-session] ERROR: Payment created but _id is missing!', { payment, paymentKeys: payment ? Object.keys(payment) : 'null' });
+      return res.status(500).json({ error: 'Failed to create payment record' });
+    }
+    console.info('[create-session] Payment created successfully:', { paymentId: payment._id, userId: payment.userId });
 
     // Flutterwave integration
     if (provider === 'flutterwave') {
@@ -175,10 +181,11 @@ router.post('/create-session', authenticate, async (req, res) => {
         const checkoutUrlFromProvider = data?.checkoutUrl || data?.url || data?.checkout?.url || data?.redirect_url;
 
         if (response.ok && checkoutUrlFromProvider) {
+          console.info('[create-session] Paychangu checkout URL received:', { checkoutUrl: checkoutUrlFromProvider, externalId: data.id });
           await Payment.updateOne({ _id: payment._id }, { externalId: data.id || data.paymentId || null, externalData: data, externalCheckoutUrl: checkoutUrlFromProvider });
           return res.json({ checkoutUrl: checkoutUrlFromProvider, paymentId: payment._id });
         } else {
-          console.warn('Paychangu create-session failed', data);
+          console.warn('[create-session] Paychangu API call failed:', { status: response.status, data });
         }
       } catch (err) {
         console.error('Paychangu create-session error', err.message || err);
@@ -186,11 +193,18 @@ router.post('/create-session', authenticate, async (req, res) => {
     }
 
     // Fallback: return a placeholder local success URL for test flows
+    if (!payment._id) {
+      console.error('[create-session] CRITICAL: Using fallback but payment._id is undefined!', { payment });
+      return res.status(500).json({ error: 'Payment ID is undefined - session creation failed' });
+    }
+    
+    console.info('[create-session] Using fallback checkout URL (no real provider keys configured)');
     const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '') || '';
     const checkoutUrl = baseUrl 
       ? `${baseUrl}/payments?sessionId=${payment._id}`
       : `/payments?sessionId=${payment._id}`;
 
+    console.info('[create-session] Returning fallback session:', { checkoutUrl, paymentId: payment._id });
     return res.json({ checkoutUrl, paymentId: payment._id });
   } catch (error) {
     return res.status(500).json({ error: error.message });
