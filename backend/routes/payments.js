@@ -159,23 +159,30 @@ router.post('/create-session', authenticate, async (req, res) => {
 
     if (paySecret && paySecret !== 'SEC-TEST-n6Lrit76RMMNaXOHeum60HSKTQrKAUWe') {
       try {
+        const payloadForPaychangu = {
+          amount: plan.amount,
+          currency: plan.currency,
+          reference: payment._id,
+          metadata: { userId: req.user._id, planId: plan.id },
+          return_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`
+        };
+
+        console.info('[create-session] Calling Paychangu API', { endpoint: `${payApiBase}/v1/checkout/sessions`, paySecret: paySecret ? '***' : 'MISSING' });
+
         const response = await fetch(`${payApiBase}/v1/checkout/sessions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${paySecret}`
           },
-          body: JSON.stringify({
-            amount: plan.amount,
-            currency: plan.currency,
-            reference: payment._id,
-            metadata: { userId: req.user._id, planId: plan.id },
-            // Return to backend first to avoid SPA deep-link 404s; backend will redirect to frontend
-            return_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`
-          })
+          body: JSON.stringify(payloadForPaychangu)
         });
 
-        const data = await response.json().catch(() => ({}));
+        const responseText = await response.text();
+        console.info('[create-session] Paychangu response:', { status: response.status, statusText: response.statusText, body: responseText?.substring(0, 500) });
+
+        let data = {};
+        try { data = JSON.parse(responseText); } catch (e) { data = { error: responseText }; }
 
         // Determine checkout URL from common response shapes
         const checkoutUrlFromProvider = data?.checkoutUrl || data?.url || data?.checkout?.url || data?.redirect_url;
