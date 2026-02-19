@@ -713,7 +713,12 @@ export const Payment = usePostgres ? {
     const id = data._id || String(Date.now()) + '-' + Math.random().toString(36).slice(2,8);
     await pool.query('INSERT INTO payments(id, user_id, plan_id, amount, currency, status, match_id, external_data, created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now())', [id, data.userId, data.planId, data.amount, data.currency, data.status || 'pending', data.matchId || null, data.externalData || null]);
     const res = await pool.query('SELECT * FROM payments WHERE id = $1', [id]);
-    return res.rows[0];
+    const row = wrapRow(res.rows[0]);
+    if (row && row.user_id) row.userId = row.user_id;
+    if (row && row.plan_id) row.planId = row.plan_id;
+    if (row && row.match_id) row.matchId = row.match_id;
+    if (row && row.external_data) row.externalData = row.external_data;
+    return row;
   },
   async find(query = {}) {
     let q = 'SELECT * FROM payments';
@@ -723,11 +728,27 @@ export const Payment = usePostgres ? {
     if (query.status) { vals.push(query.status); where.push(`status = $${vals.length}`); }
     if (where.length) q += ' WHERE ' + where.join(' AND ');
     const res = await pool.query(q, vals);
-    return res.rows.map(r => ({ ...r, toJSON: () => r }));
+    return res.rows.map(r => {
+      const obj = wrapRow(r);
+      if (obj) {
+        if (obj.user_id) obj.userId = obj.user_id;
+        if (obj.plan_id) obj.planId = obj.plan_id;
+        if (obj.match_id) obj.matchId = obj.match_id;
+        if (obj.external_data) obj.externalData = obj.external_data;
+      }
+      return obj;
+    });
   },
   async findById(id) {
     const res = await pool.query('SELECT * FROM payments WHERE id = $1 LIMIT 1', [id]);
-    return res.rows[0] || null;
+    const row = wrapRow(res.rows[0]);
+    if (row) {
+      if (row.user_id) row.userId = row.user_id;
+      if (row.plan_id) row.planId = row.plan_id;
+      if (row.match_id) row.matchId = row.match_id;
+      if (row.external_data) row.externalData = row.external_data;
+    }
+    return row || null;
   },
   async updateOne(query, data) {
     const id = query._id || query.id;
@@ -739,7 +760,14 @@ export const Payment = usePostgres ? {
     const q = `UPDATE payments SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await pool.query(q, vals);
-    return res.rows[0];
+    const row = wrapRow(res.rows[0]);
+    if (row) {
+      if (row.user_id) row.userId = row.user_id;
+      if (row.plan_id) row.planId = row.plan_id;
+      if (row.match_id) row.matchId = row.match_id;
+      if (row.external_data) row.externalData = row.external_data;
+    }
+    return row;
   }
 } : (function(){
   let payments = [];
