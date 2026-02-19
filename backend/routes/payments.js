@@ -271,8 +271,7 @@ router.get('/return', async (req, res) => {
       }
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || '/';
-    const redirectUrl = `${frontendUrl}/payments?sessionId=${payment._id}${payment.matchId ? `&matchId=${payment.matchId}` : ''}`;
+    const redirectUrl = `${frontendUrl || process.env.FRONTEND_URL || '/'}/payments?sessionId=${payment._id}${payment.matchId ? `&matchId=${payment.matchId}` : ''}`;
 
     return res.redirect(302, redirectUrl);
   } catch (err) {
