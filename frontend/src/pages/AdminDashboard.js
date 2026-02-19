@@ -11,6 +11,8 @@ function AdminDashboard() {
   const [reports, setReports] = useState([]);
   const [activeTab, setActiveTab] = useState('stats');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,6 +22,13 @@ function AdminDashboard() {
   const fetchAdminData = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      // First, get current user to verify admin status
+      const userRes = await axios.get(`${API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(userRes.data.user);
+      console.log('[AdminDashboard] Logged in as:', userRes.data.user.email);
 
       const [statsRes, usersRes, reportsRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, {
@@ -36,8 +45,12 @@ function AdminDashboard() {
       setStats(statsRes.data);
       setUnverifiedUsers(usersRes.data);
       setReports(reportsRes.data);
+      setError(null);
     } catch (err) {
-      console.error('Error fetching admin data:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to load admin data';
+      const status = err.response?.status;
+      console.error('[AdminDashboard] Error fetching admin data:', status, errorMsg);
+      setError(`${status === 403 ? 'Access Denied - ' : ''}${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -99,6 +112,14 @@ function AdminDashboard() {
           </button>
           <h1 className="text-4xl font-bold text-gray-800">Admin Dashboard</h1>
         </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <p className="font-medium">Error: {error}</p>
+            {user && <p className="text-sm mt-1">Logged in as: {user.email}</p>}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6 border-b">
