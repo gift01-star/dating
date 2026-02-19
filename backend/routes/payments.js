@@ -202,11 +202,42 @@ router.get('/return', async (req, res) => {
   try {
     if (!PAYMENTS_ENABLED) return res.status(410).send('Payments are currently disabled.');
 
-    const { paymentId } = req.query;
-    if (!paymentId) return res.status(400).send('Missing paymentId');
+    // Log incoming query for debugging (helps diagnose missing sessionId redirects)
+    console.info('/api/payments/return called with query:', req.query);
 
-    const payment = await Payment.findById(paymentId);
-    if (!payment) return res.status(404).send('Payment not found');
+    // Accept multiple possible param names from providers
+    const paymentId = req.query.paymentId || req.query.payment_id || req.query.id || req.query.reference || req.query.tx_ref || req.query.ref || null;
+
+    let payment = null;
+    if (paymentId) {
+      try {
+        payment = await Payment.findById(paymentId);
+      } catch (err) {
+        console.warn('Error looking up payment by id on return:', err && err.message ? err.message : err);
+      }
+    }
+
+    // If not found by id, try to locate by external reference fields (provider may return reference/external_id)
+    if (!payment) {
+      const externalRef = req.query.externalId || req.query.reference || req.query.tx_ref || req.query.transaction_id || req.query.external_id || null;
+      if (externalRef) {
+        try {
+          const candidates = await Payment.find({});
+          payment = (candidates || []).find(p => String(p.externalId) === String(externalRef) || (p.externalData && (String(p.externalData.reference) === String(externalRef) || String(p.externalData.id) === String(externalRef))));
+        } catch (err) {
+          console.warn('Error searching payments by externalRef on return:', err && err.message ? err.message : err);
+        }
+      }
+    }
+
+    // If still not found, redirect to frontend with an error instead of sending undefined sessionId
+    const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '') || '';
+    if (!payment) {
+      console.warn('Payment not found on return. Query:', req.query);
+      const redirectBase = frontendUrl || `${req.protocol}://${req.get('host')}`;
+      const redirectUrl = `${redirectBase}/payments?error=missing_session`;
+      return res.redirect(302, redirectUrl);
+    }
 
     // If this payment was created with Flutterwave, attempt to verify its status server-side
     if (payment.provider === 'flutterwave') {
