@@ -70,6 +70,8 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Track when user last viewed likes (so we can compute unseen likes)
+  lastSeenLikesAt: Date,
   profileCompletion: {
     type: Number,
     default: 0

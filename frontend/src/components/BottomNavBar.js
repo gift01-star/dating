@@ -98,7 +98,22 @@ function BottomNavBar({ user }) {
           {navItems.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('token');
+                  if (item.path === '/messages' && token) {
+                    await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                    setCounts(prev => ({ ...prev, messages: 0 }));
+                  }
+                  if (item.path === '/likes' && token) {
+                    await axios.post(`${API_URL}/matches/mark-likes-seen`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                    setCounts(prev => ({ ...prev, likes: 0 }));
+                  }
+                } catch (err) {
+                  // ignore errors
+                }
+                navigate(item.path);
+              }}
               className={`relative flex flex-col items-center justify-center py-3 px-4 w-full transition-colors ${
                 isActive(item.path)
                   ? `${item.color} font-semibold`

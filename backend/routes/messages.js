@@ -141,6 +141,16 @@ router.get('/unread/count', verifyToken, async (req, res) => {
   }
 });
 
+// Mark all unread messages for current user as read
+router.post('/mark-all-read', verifyToken, async (req, res) => {
+  try {
+    await Message.updateMany({ receiverId: req.userId, read: false }, { read: true, readAt: new Date() });
+    res.json({ message: 'All messages marked as read' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // === PATTERN-BASED ROUTES (/:matchId routes) ===
 
 // Send message

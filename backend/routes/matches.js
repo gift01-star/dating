@@ -162,13 +162,19 @@ router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
   router.get('/counts', verifyToken, async (req, res) => {
     try {
       const allMatches = await Match.find({});
+      const user = await User.findById(req.userId);
 
       const matchesCount = allMatches.filter(m => {
         return m.status === 'matched' && (String(m.user1) === String(req.userId) || String(m.user2) === String(req.userId));
       }).length;
 
+      // Likes count: pending likes received AFTER user's lastSeenLikesAt (if set)
+      const lastSeen = user?.lastSeenLikesAt ? new Date(user.lastSeenLikesAt) : null;
       const likesCount = allMatches.filter(m => {
-        return m.status === 'pending' && String(m.user2) === String(req.userId);
+        if (m.status !== 'pending') return false;
+        if (String(m.user2) !== String(req.userId)) return false;
+        if (!lastSeen) return true;
+        return new Date(m.createdAt) > lastSeen;
       }).length;
 
       // Unread messages
@@ -177,6 +183,16 @@ router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
       const unreadCount = msgs.filter(m => String(m.receiverId) === String(req.userId) && !m.read).length;
 
       res.json({ matches: matchesCount, likes: likesCount, messages: unreadCount });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Mark likes as seen (sets user's lastSeenLikesAt to now)
+  router.post('/mark-likes-seen', verifyToken, async (req, res) => {
+    try {
+      await User.updateOne({ _id: req.userId }, { lastSeenLikesAt: new Date() });
+      res.json({ message: 'Likes marked as seen' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
