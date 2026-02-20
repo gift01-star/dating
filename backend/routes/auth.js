@@ -1,7 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
-import sgMail from '@sendgrid/mail';
 import { User } from '../database.js';
 
 const router = express.Router();
@@ -184,7 +183,7 @@ router.post('/request-reset', async (req, res) => {
 
     await User.updateOne({ email }, { resetToken: token, resetExpires });
 
-    const resetLink = `${process.env.FRONTEND_URL || 'https://onrender.onrender.com'}/reset/${token}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'https://edu-love.onrender.onrender.com'}/reset/${token}`;
 
     // Try to email the reset link if SMTP is configured
     let emailSent = false;
@@ -192,6 +191,8 @@ router.post('/request-reset', async (req, res) => {
       // Prefer SendGrid API if configured
       if (process.env.SENDGRID_API_KEY) {
         try {
+          const sgModule = await import('@sendgrid/mail').catch(e => { throw e; });
+          const sgMail = sgModule.default || sgModule;
           sgMail.setApiKey(process.env.SENDGRID_API_KEY);
           const fromAddress = process.env.FROM_EMAIL || 'no-reply@' + (process.env.FRONTEND_URL?.replace(/^https?:\/\//, '') || 'example.com');
           await sgMail.send({
@@ -203,7 +204,8 @@ router.post('/request-reset', async (req, res) => {
           });
           emailSent = true;
         } catch (sgErr) {
-          console.error('SendGrid error:', sgErr && sgErr.message ? sgErr.message : sgErr);
+          console.error('SendGrid dynamic import/send error:', sgErr && sgErr.message ? sgErr.message : sgErr);
+          // If SendGrid SDK isn't installed, fall through to SMTP fallback
           emailSent = false;
         }
       } else if (process.env.SMTP_HOST) {
