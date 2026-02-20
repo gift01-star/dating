@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import { User } from '../database.js';
 
 const router = express.Router();
@@ -183,8 +184,46 @@ router.post('/request-reset', async (req, res) => {
 
     const resetLink = `${process.env.FRONTEND_URL || 'https://frontend-i89x.onrender.com'}/reset/${token}`;
 
-    // In production you'd email the link. For dev, return it in the response.
-    res.json({ message: 'Reset link created', resetLink });
+    // Try to email the reset link if SMTP is configured
+    let emailSent = false;
+    try {
+      const smtpHost = process.env.SMTP_HOST;
+      if (smtpHost) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT || '587', 10),
+          secure: (process.env.SMTP_SECURE === 'true'),
+          auth: process.env.SMTP_USER ? {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          } : undefined
+        });
+
+        const fromAddress = process.env.FROM_EMAIL || `no-reply@${process.env.SMTP_HOST}`;
+
+        const mailOptions = {
+          from: fromAddress,
+          to: user.email,
+          subject: 'Password reset request',
+          text: `You requested a password reset. Use this link to reset your password (valid 1 hour): ${resetLink}`,
+          html: `<p>You requested a password reset. Click the link below to reset your password (valid 1 hour):</p><p><a href="${resetLink}">${resetLink}</a></p>`
+        };
+
+        await transporter.sendMail(mailOptions);
+        emailSent = true;
+      }
+    } catch (err) {
+      console.error('Error sending reset email:', err && err.message ? err.message : err);
+      emailSent = false;
+    }
+
+    if (emailSent) {
+      // Don't return the link when emailed
+      res.json({ message: 'If an account exists, a reset link has been sent' });
+    } else {
+      // Dev fallback: return reset link in response when SMTP not configured
+      res.json({ message: 'Reset link created', resetLink });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

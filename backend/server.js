@@ -18,6 +18,7 @@ import messageRoutes from './routes/messages.js';
 import reportRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
 import paymentRoutes from './routes/payments.js';
+import authRoutes from './routes/auth.js';
 
 // Import database
 import { User } from './database.js';
@@ -167,104 +168,8 @@ app.get('/', (req, res) => {
 
 // Routes
 
-// Auth Routes
-// Register
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    console.log('Incoming /api/auth/register request from', req.ip, 'origin:', req.headers.origin);
-    console.log('Request body keys:', Object.keys(req.body));
-    let { name, email, password, confirmPassword } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'All fields are required' });
-    }
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({ error: 'Passwords do not match' });
-    }
-
-    email = email.toLowerCase();
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
-
-    const user = await User.create({
-      name,
-      email,
-      password
-    });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
-      expiresIn: process.env.JWT_EXPIRE || '7d'
-    });
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: user.toJSON()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Login
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    let { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
-    }
-
-    email = email.toLowerCase();
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const isPasswordValid = await User.comparePassword(email, password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    await User.updateOne({ email }, { lastActive: new Date() });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', {
-      expiresIn: process.env.JWT_EXPIRE || '7d'
-    });
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: user.toJSON()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Verify token
-app.get('/api/auth/me', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    res.json({ user: user.toJSON() });
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
+// Auth routes (centralized in routes/auth.js)
+app.use('/api/auth', authRoutes);
 
 // Photo Upload Endpoint
 app.post('/api/users/upload-photo', upload.single('photo'), async (req, res) => {
