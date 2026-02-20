@@ -10,8 +10,6 @@ function BottomNavBar({ user }) {
   const location = useLocation();
   const [counts, setCounts] = useState({ matches: 0, likes: 0, messages: 0 });
 
-  // Note: visibility check is done after hooks to comply with React Hooks rules
-
   const token = localStorage.getItem('token');
 
   const isActive = (path) => {
@@ -21,34 +19,80 @@ function BottomNavBar({ user }) {
   useEffect(() => {
     let mounted = true;
     let intervalId;
+    let backoffMs = 60000; // start with 60s
+
+    const CACHE_KEY = 'nav_counts_cache_v1';
+    const MIN_POLL = 60000; // 60s
+    const MAX_BACKOFF = 5 * 60 * 1000; // 5 minutes
+
+    const readCache = () => {
+      try {
+        const raw = sessionStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const writeCache = (data) => {
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+      } catch (e) {}
+    };
 
     const fetchCounts = async () => {
       if (!token) return;
+
+      const cached = readCache();
+      if (cached && (Date.now() - (cached.ts || 0) < 20000)) {
+        setCounts(cached.data);
+        return;
+      }
+
       try {
         const res = await axios.get(`${API_URL}/matches/counts`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+
         if (mounted && res.data) {
-          setCounts({
+          const newCounts = {
             matches: res.data.matches || 0,
             likes: res.data.likes || 0,
             messages: res.data.messages || 0
-          });
+          };
+          setCounts(newCounts);
+          writeCache(newCounts);
+          backoffMs = MIN_POLL;
         }
       } catch (err) {
-        // ignore errors silently
+        const status = err?.response?.status;
+        if (status === 429) {
+          const retryAfter = parseInt(err.response.headers['retry-after']) || 0;
+          if (retryAfter > 0) {
+            backoffMs = Math.min(retryAfter * 1000, MAX_BACKOFF);
+          } else {
+            backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF);
+          }
+        } else {
+          backoffMs = Math.min(backoffMs * 1.5, MAX_BACKOFF);
+        }
       }
     };
 
+    // expose global refresh so pages can trigger immediate refresh
+    try { window.__REFRESH_NAV_COUNTS__ = fetchCounts; } catch (e) {}
+
     fetchCounts();
-    // refresh every 30s
-    intervalId = setInterval(fetchCounts, 30000);
+    intervalId = setInterval(fetchCounts, backoffMs);
 
     return () => {
       mounted = false;
       clearInterval(intervalId);
+      try { delete window.__REFRESH_NAV_COUNTS__; } catch (e) {}
     };
-  }, [token]);
+  }, [token, location.pathname]);
 
   // Hide nav bar until the user has at least 5% profile completion
   if (!user || (user.profileCompletion || 0) < 5) return null;
@@ -104,10 +148,14 @@ function BottomNavBar({ user }) {
                   if (item.path === '/messages' && token) {
                     await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
                     setCounts(prev => ({ ...prev, messages: 0 }));
+                    try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
+                    try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
                   }
                   if (item.path === '/likes' && token) {
                     await axios.post(`${API_URL}/matches/mark-likes-seen`, {}, { headers: { Authorization: `Bearer ${token}` } });
                     setCounts(prev => ({ ...prev, likes: 0 }));
+                    try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
+                    try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
                   }
                 } catch (err) {
                   // ignore errors

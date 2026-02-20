@@ -163,6 +163,17 @@ function ChatPage({ user }) {
       } catch (err) {
         console.error('Error fetching match info:', err);
       }
+      // After fetching messages for this chat, mark all as read to clear global unread badge
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
+          try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
+          try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
+        }
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       const msg = err.response?.data?.error || '';
       const profileCompletion = err.response?.data?.profileCompletion;

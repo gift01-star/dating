@@ -33,6 +33,17 @@ function MessagesPage({ user }) {
       });
 
       setConversations(response.data.conversations || []);
+      // Mark all as read when viewing the conversations list so the global unread badge clears
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
+          try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
+          try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
+        }
+      } catch (err) {
+        // ignore
+      }
     } catch (err) {
       const msg = err.response?.data?.error || '';
       const profileCompletion = err.response?.data?.profileCompletion;

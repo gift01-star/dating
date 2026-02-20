@@ -60,6 +60,17 @@ function LikesPage({ user }) {
       const likesData = Array.isArray(response.data.likes) ? response.data.likes : (response.data || []);
       setLikes(likesData);
       setError('');
+      // If viewing received likes, mark them as seen so badge clears
+      try {
+        const token = localStorage.getItem('token');
+        if (token && view === 'received') {
+          await axios.post(`${API_URL}/matches/mark-likes-seen`, {}, { headers: { Authorization: `Bearer ${token}` } });
+          try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
+          try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
+        }
+      } catch (err) {
+        // ignore
+      }
     } catch (err) {
       if (err.response?.status === 401) {
         localStorage.removeItem('token');
