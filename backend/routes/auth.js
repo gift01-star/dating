@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { User } from '../database.js';
 
 const router = express.Router();
@@ -92,7 +93,8 @@ router.post('/login', async (req, res) => {
     email = email.toLowerCase();
     console.log('[Login] Attempting to find user with email:', email);
     
-    const user = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       console.log('[Login] User not found for email:', email);
       // Get count of all users for debugging
@@ -182,13 +184,29 @@ router.post('/request-reset', async (req, res) => {
 
     await User.updateOne({ email }, { resetToken: token, resetExpires });
 
-    const resetLink = `${process.env.FRONTEND_URL || 'https://frontend-i89x.onrender.com'}/reset/${token}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'https://onrender.onrender.com'}/reset/${token}`;
 
     // Try to email the reset link if SMTP is configured
     let emailSent = false;
     try {
-      const smtpHost = process.env.SMTP_HOST;
-      if (smtpHost) {
+      // Prefer SendGrid API if configured
+      if (process.env.SENDGRID_API_KEY) {
+        try {
+          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          const fromAddress = process.env.FROM_EMAIL || 'no-reply@' + (process.env.FRONTEND_URL?.replace(/^https?:\/\//, '') || 'example.com');
+          await sgMail.send({
+            to: user.email,
+            from: fromAddress,
+            subject: 'Password reset request',
+            text: `You requested a password reset. Use this link to reset your password (valid 1 hour): ${resetLink}`,
+            html: `<p>You requested a password reset. Click the link below to reset your password (valid 1 hour):</p><p><a href="${resetLink}">${resetLink}</a></p>`
+          });
+          emailSent = true;
+        } catch (sgErr) {
+          console.error('SendGrid error:', sgErr && sgErr.message ? sgErr.message : sgErr);
+          emailSent = false;
+        }
+      } else if (process.env.SMTP_HOST) {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
           port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -198,6 +216,14 @@ router.post('/request-reset', async (req, res) => {
             pass: process.env.SMTP_PASS
           } : undefined
         });
+
+        // Verify transporter before sending to get clearer errors
+        try {
+          await transporter.verify();
+        } catch (verifyErr) {
+          console.error('SMTP verify failed:', verifyErr && verifyErr.message ? verifyErr.message : verifyErr);
+          throw verifyErr;
+        }
 
         const fromAddress = process.env.FROM_EMAIL || `no-reply@${process.env.SMTP_HOST}`;
 

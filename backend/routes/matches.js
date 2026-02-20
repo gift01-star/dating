@@ -158,6 +158,30 @@ router.get('/likes', verifyToken, requireMinimumProfile, async (req, res) => {
   }
 });
 
+  // Counts for nav badges: matches, likes (pending received), unread messages
+  router.get('/counts', verifyToken, async (req, res) => {
+    try {
+      const allMatches = await Match.find({});
+
+      const matchesCount = allMatches.filter(m => {
+        return m.status === 'matched' && (String(m.user1) === String(req.userId) || String(m.user2) === String(req.userId));
+      }).length;
+
+      const likesCount = allMatches.filter(m => {
+        return m.status === 'pending' && String(m.user2) === String(req.userId);
+      }).length;
+
+      // Unread messages
+      const Message = (await import('../database.js')).Message;
+      const msgs = await Message.find({});
+      const unreadCount = msgs.filter(m => String(m.receiverId) === String(req.userId) && !m.read).length;
+
+      res.json({ matches: matchesCount, likes: likesCount, messages: unreadCount });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
 // Get all likes SENT by current user (pending likes where user1 is current user)
 router.get('/likes/sent', verifyToken, requireMinimumProfile, async (req, res) => {
   try {
