@@ -238,7 +238,7 @@ function LandingPage() {
             <div>
               <h4 className="font-bold mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="mailto:support@edulove.com" className="hover:text-white transition">support@edulove.com</a></li>
+                <li><a href="mailto:4edulove@gmail.com" className="hover:text-white transition">support@edulove.com</a></li>
                 <li><a href="tel:+265982780024" className="hover:text-white transition">+265 982 780 024</a></li>
                 <li>24/7 Customer Support</li>
               </ul>
