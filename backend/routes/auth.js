@@ -191,21 +191,40 @@ router.post('/request-reset', async (req, res) => {
       // Prefer SendGrid API if configured
       if (process.env.SENDGRID_API_KEY) {
         try {
-          const sgModule = await import('@sendgrid/mail').catch(e => { throw e; });
-          const sgMail = sgModule.default || sgModule;
-          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          // Use SendGrid HTTP API directly to avoid requiring the SDK
           const fromAddress = process.env.FROM_EMAIL || 'no-reply@' + (process.env.FRONTEND_URL?.replace(/^https?:\/\//, '') || 'example.com');
-          await sgMail.send({
-            to: user.email,
-            from: fromAddress,
-            subject: 'Password reset request',
-            text: `You requested a password reset. Use this link to reset your password (valid 1 hour): ${resetLink}`,
-            html: `<p>You requested a password reset. Click the link below to reset your password (valid 1 hour):</p><p><a href="${resetLink}">${resetLink}</a></p>`
+          const payload = {
+            personalizations: [
+              {
+                to: [{ email: user.email }],
+                subject: 'Password reset request'
+              }
+            ],
+            from: { email: fromAddress },
+            content: [
+              { type: 'text/plain', value: `You requested a password reset. Use this link to reset your password (valid 1 hour): ${resetLink}` },
+              { type: 'text/html', value: `<p>You requested a password reset. Click the link below to reset your password (valid 1 hour):</p><p><a href="${resetLink}">${resetLink}</a></p>` }
+            ]
+          };
+
+          const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
           });
-          emailSent = true;
+
+          if (res.ok) {
+            emailSent = true;
+          } else {
+            const bodyText = await res.text().catch(() => '');
+            console.error('SendGrid API error:', res.status, bodyText);
+            emailSent = false;
+          }
         } catch (sgErr) {
-          console.error('SendGrid dynamic import/send error:', sgErr && sgErr.message ? sgErr.message : sgErr);
-          // If SendGrid SDK isn't installed, fall through to SMTP fallback
+          console.error('SendGrid HTTP send error:', sgErr && sgErr.message ? sgErr.message : sgErr);
           emailSent = false;
         }
       } else if (process.env.SMTP_HOST) {

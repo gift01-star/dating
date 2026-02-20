@@ -272,7 +272,7 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                 : 'text-green-700'
             }`}>
               {profileCompletion < 50 
-                ? `⚠️ Your profile is ${profileCompletion}% complete. You're visible to others, but need 50% to use features.` 
+                ? `⚠️ Your profile is ${profileCompletion}% complete. You're visible to others, but need 50% & upload atleast one photo to use features.` 
                 : profileCompletion === 100 
                 ? '✅ Your profile is complete!' 
                 : `Good progress! Complete more to reach 100%`}

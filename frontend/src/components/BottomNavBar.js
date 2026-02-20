@@ -10,8 +10,7 @@ function BottomNavBar({ user }) {
   const location = useLocation();
   const [counts, setCounts] = useState({ matches: 0, likes: 0, messages: 0 });
 
-  // Hide nav bar until the user has at least 5% profile completion
-  if (!user || (user.profileCompletion || 0) < 5) return null;
+  // Note: visibility check is done after hooks to comply with React Hooks rules
 
   const token = localStorage.getItem('token');
 
@@ -50,6 +49,9 @@ function BottomNavBar({ user }) {
       clearInterval(intervalId);
     };
   }, [token]);
+
+  // Hide nav bar until the user has at least 5% profile completion
+  if (!user || (user.profileCompletion || 0) < 5) return null;
 
   const navItems = [
     {
