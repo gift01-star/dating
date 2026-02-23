@@ -25,6 +25,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState({ likes: 0, messages: 0, matches: 0 });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -45,6 +46,26 @@ function App() {
     };
 
     checkAuth();
+  }, []);
+
+  // Update document title with notification count
+  useEffect(() => {
+    const totalNotifications = notifications.likes + notifications.messages + notifications.matches;
+    if (totalNotifications > 0) {
+      document.title = `(${totalNotifications}) EduLove - University Dating`;
+    } else {
+      document.title = 'EduLove - University Dating';
+    }
+  }, [notifications]);
+
+  // Expose notification state globally so BottomNavBar can update it
+  useEffect(() => {
+    window.__UPDATE_APP_NOTIFICATIONS__ = setNotifications;
+    return () => {
+      if (window.__UPDATE_APP_NOTIFICATIONS__ === setNotifications) {
+        delete window.__UPDATE_APP_NOTIFICATIONS__;
+      }
+    };
   }, []);
 
   const handleLogout = () => {

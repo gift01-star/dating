@@ -41,7 +41,8 @@ function DiscoverPage({ user }) {
     maxAge: '',
     minHeight: '',
     maxHeight: '',
-    relationship: ''
+    relationship: '',
+    interests: ''
   });
   const navigate = useNavigate();
 
@@ -78,6 +79,7 @@ function DiscoverPage({ user }) {
       if (filters.minAge) query.append('minAge', filters.minAge);
       if (filters.maxAge) query.append('maxAge', filters.maxAge);
       if (filters.relationship) query.append('relationship', filters.relationship);
+      if (filters.interests) query.append('interests', filters.interests);
 
       const response = await axios.get(`${API_URL}/users/discover?${query}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -289,7 +291,14 @@ function DiscoverPage({ user }) {
               <option value="22">22+</option>
               <option value="25">25+</option>
             </select>
-            
+
+            <input
+              type="text"
+              placeholder="Search interests (comma-separated)"
+              value={filters.interests}
+              onChange={(e) => setFilters({ ...filters, interests: e.target.value })}
+              className="input-field text-sm md:col-span-2"
+            />
             
           </div>
         </div>

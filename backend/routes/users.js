@@ -114,10 +114,23 @@ router.put('/profile', verifyToken, async (req, res) => {
   }
 });
 
+// Helper function to calculate age from DOB
+const calculateAge = (dob) => {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 // Get users for matching (with filters)
 router.get('/discover', verifyToken, async (req, res) => {
   try {
-    const { gender, university, location, minAge, maxAge, minHeight, maxHeight, page = 1 } = req.query;
+    const { gender, university, location, minAge, maxAge, minHeight, maxHeight, interests, page = 1 } = req.query;
 
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ error: 'User not found' });
@@ -145,8 +158,22 @@ router.get('/discover', verifyToken, async (req, res) => {
       if (location && u.location !== location) return false;
       if (minHeight && u.height && u.height < parseInt(minHeight)) return false;
       if (maxHeight && u.height && u.height > parseInt(maxHeight)) return false;
+      // Age range filter (calculate from DOB)
+      if (minAge || maxAge) {
+        const userAge = calculateAge(u.dob);
+        if (userAge === null) return false; // Exclude if no DOB set
+        if (minAge && userAge < parseInt(minAge)) return false;
+        if (maxAge && userAge > parseInt(maxAge)) return false;
+      }
       // Relationship filter
       if (req.query.relationship && u.relationshipGoal !== req.query.relationship) return false;
+      // Interests filter (user must have at least one matching interest)
+      if (interests) {
+        const filterInterests = interests.split(',').map(i => i.trim().toLowerCase()).filter(Boolean);
+        const userInterests = (u.interests || []).map(i => i.toLowerCase());
+        const hasMatchingInterest = filterInterests.some(fi => userInterests.includes(fi));
+        if (!hasMatchingInterest) return false;
+      }
       return true;
     });
 
