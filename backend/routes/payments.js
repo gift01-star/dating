@@ -365,6 +365,19 @@ router.get('/latest', authenticate, async (req, res) => {
   }
 });
 
+// Get payment history for authenticated user
+router.get('/history', authenticate, async (req, res) => {
+  try {
+    const payments = await Payment.find({ userId: req.user._id });
+    // sort by newest first
+    const sorted = (payments || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ payments: sorted });
+  } catch (err) {
+    console.error('[Payments] history error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint to complete a payment (test helper) - marks payment succeeded and unlocks messaging for the user
 router.post('/complete/:id', authenticate, async (req, res) => {
   try {

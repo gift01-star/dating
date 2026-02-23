@@ -14,20 +14,6 @@ function LandingPage() {
             <FaHeart className="text-3xl text-pink-500" />
             <span className="text-2xl font-bold text-gray-800">EduLove</span>
           </div>
-          <div className="space-x-4">
-            <button
-              onClick={() => navigate('/login')}
-              className="px-6 py-2 text-gray-700 hover:text-pink-500 font-medium transition"
-            >
-      
-            </button>
-            <button
-              onClick={() => navigate('/register')}
-              className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition font-medium"
-            >
-            
-            </button>
-          </div>
         </div>
       </nav>
 
@@ -120,7 +106,7 @@ function LandingPage() {
               </p>
             </div>
 
-            {/* Feature 6 */};
+            {/* Feature 6 */}
             <div className="bg-gradient-to-br from-pink-50 to-rose-50 p-8 rounded-2xl hover:shadow-lg transition">
               <FaUsers className="text-4xl text-pink-500 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Community Driven</h3>

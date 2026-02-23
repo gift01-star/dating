@@ -13,6 +13,9 @@ export default function PaymentsPage({ user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [paymentsHistory, setPaymentsHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -109,6 +112,21 @@ export default function PaymentsPage({ user }) {
       console.error('Error checking payment status:', err);
     }
   };
+
+  const fetchPaymentHistory = useCallback(async () => {
+    try {
+      setHistoryLoading(true);
+      const token = localStorage.getItem('token');
+      const resp = await axios.get(`${API_URL}/payments/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPaymentsHistory(resp.data.payments || []);
+    } catch (err) {
+      console.error('[PaymentsPage] fetchPaymentHistory error', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   const handlePaymentClick = async (planId) => {
     try {
@@ -254,6 +272,51 @@ export default function PaymentsPage({ user }) {
               <li>✓ 24/7 customer support available</li>
             </ul>
           </div>
+
+          {/* Payment History Toggle */}
+          <div className="mt-6">
+            <button
+              onClick={async () => {
+                const newState = !showHistory;
+                setShowHistory(newState);
+                if (newState && paymentsHistory.length === 0) {
+                  await fetchPaymentHistory();
+                }
+              }}
+              className="px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50"
+            >
+              {showHistory ? 'Hide Payment History' : 'View Payment History'}
+            </button>
+          </div>
+
+          {showHistory && (
+            <div className="mt-4 bg-white rounded-lg shadow p-4 border border-gray-100">
+              <h3 className="font-semibold text-gray-800 mb-3">Payment History</h3>
+              {historyLoading ? (
+                <p className="text-gray-600">Loading...</p>
+              ) : paymentsHistory.length === 0 ? (
+                <p className="text-gray-600">No payments found.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {paymentsHistory.map((p) => (
+                    <li key={p._id || p.id} className="p-3 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm text-gray-600">{new Date(p.createdAt || p.created_at || p.date || Date.now()).toLocaleString()}</div>
+                          <div className="font-medium text-gray-800">{(p.planId || p.plan || 'Unknown').toString()}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-gray-700 font-semibold">{p.currency ? `${(p.amount/100).toFixed(2)} ${p.currency}` : p.amount}</div>
+                          <div className={`text-sm ${p.status === 'succeeded' ? 'text-green-600' : p.status === 'failed' ? 'text-red-600' : 'text-gray-600'}`}>{p.status}</div>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">Provider: {p.provider || p.providerName || 'n/a'} • Reference: {p.externalId || p._id}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaPaperPlane, FaBan, FaFlag, FaSmile, FaCheck, FaCheckDouble } from 'react-icons/fa';
+import { io } from 'socket.io-client';
 import getImageUrl from '../utils/imageUrl';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://edulove-backend.onrender.com/api';
@@ -109,6 +110,9 @@ function ChatPage({ user }) {
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
   const messagesEndRef = React.useRef(null);
+  const socketRef = useRef(null);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
 
   // Keep a local copy of the user so we can update blocked/unblocked state locally
   const [localUser, setLocalUser] = useState(user);
@@ -127,6 +131,49 @@ function ChatPage({ user }) {
     fetchMessages();
     const interval = setInterval(fetchMessages, 3000); // Refresh every 3 seconds
     return () => clearInterval(interval);
+  }, [matchId]);
+
+  // Socket.IO connection for typing indicators and incoming realtime messages
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', { auth: { token } });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.info('[Socket] connected', socket.id);
+    });
+
+    socket.on('typing', (data) => {
+      if (String(data.matchId) === String(matchId)) {
+        setOtherTyping(true);
+      }
+    });
+
+    socket.on('stop_typing', (data) => {
+      if (String(data.matchId) === String(matchId)) {
+        setOtherTyping(false);
+      }
+    });
+
+    socket.on('new_message', (payload) => {
+      // If the incoming message belongs to this match, refresh
+      if (String(payload.matchId) === String(matchId)) {
+        fetchMessages();
+      }
+    });
+
+    return () => {
+      try {
+        // emit stop_typing if needed
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        socket.emit && socket.emit('stop_typing', { toUserId: matchInfo?.user?._id, matchId });
+      } catch (e) {}
+      try { socket.disconnect(); } catch (e) {}
+    };
   }, [matchId]);
 
   const fetchMessages = async () => {
@@ -163,20 +210,16 @@ function ChatPage({ user }) {
       } catch (err) {
         console.error('Error fetching match info:', err);
       }
-      
-      // Mark messages as read for THIS specific conversation (like WhatsApp)
+      // After fetching messages for this chat, mark all as read to clear global unread badge
       try {
         const token = localStorage.getItem('token');
         if (token) {
-          await axios.post(`${API_URL}/messages/mark-read/${matchId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-          // Refresh the global notification badge
+          await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
           try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
           try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
-          // Update App-level notifications
-          try { window.__UPDATE_APP_NOTIFICATIONS?.(prev => ({ ...prev, messages: 0 })); } catch (e) {}
         }
       } catch (e) {
-        console.error('Error marking messages as read:', e);
+        // ignore
       }
     } catch (err) {
       const msg = err.response?.data?.error || '';
@@ -222,6 +265,10 @@ function ChatPage({ user }) {
       
       setMessage('');
       await fetchMessages();
+      // after sending message, notify stop_typing
+      try {
+        socketRef.current?.emit('stop_typing', { toUserId: matchInfo?.user?._id, matchId });
+      } catch (e) {}
     } catch (err) {
       console.error('[ChatPage] Error sending message - Status:', err.response?.status, 'Data:', err.response?.data);
       
@@ -257,6 +304,22 @@ function ChatPage({ user }) {
 
       console.error('[ChatPage] Error sending message:', err);
       alert('❌ Error sending message: ' + (err.response?.data?.error || err.message || 'Please try again.'));
+    }
+  };
+
+  // Emit typing events while the user types
+  const handleTyping = (value) => {
+    setMessage(value);
+    try {
+      if (!socketRef.current) return;
+      socketRef.current.emit('typing', { toUserId: matchInfo?.user?._id, matchId });
+      // clear previous timeout
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        try { socketRef.current.emit('stop_typing', { toUserId: matchInfo?.user?._id, matchId }); } catch (e) {}
+      }, 2000);
+    } catch (err) {
+      // ignore
     }
   };
 
@@ -386,17 +449,17 @@ function ChatPage({ user }) {
                   )}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
                 <h1 className="text-base md:text-lg font-bold text-gray-800 truncate">
                   {matchInfo.user.nickname || matchInfo.user.name}
                 </h1>
-                <div className="text-xs text-gray-500 truncate">
+                        <div className="text-xs text-gray-500 truncate">
                   {matchInfo.user.university && (
                     <span>{matchInfo.user.university}</span>
                   )}
-                  <p className={`text-xs ${matchInfo.user.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
-                    {matchInfo.user.isOnline ? '🟢 Online' : '⚪ Offline'}
-                  </p>
+                          <p className={`text-xs ${matchInfo.user.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                            {otherTyping ? 'Typing...' : (matchInfo.user.isOnline ? '🟢 Online' : '⚪ Offline')}
+                          </p>
                 </div>
               </div>
 
@@ -542,7 +605,7 @@ function ChatPage({ user }) {
             <input
               type="text"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => handleTyping(e.target.value)}
               placeholder={isMessagingDisabled ? 'Messaging unavailable' : 'Type a message... 😊'}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm md:text-base"
               disabled={isMessagingDisabled}

@@ -2,26 +2,10 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { Message, Match, User } from '../database.js';
 import { sendMessageNotification } from '../utils/emailService.js';
+import pushService from '../utils/pushService.js';
+import { getIO } from '../utils/socket.js';
 
 const router = express.Router();
-
-// In-memory storage for typing indicators (matchId -> Set of userIds)
-const typingIndicators = new Map();
-
-// Cleanup typing indicators (auto-expire after 3 seconds)
-setInterval(() => {
-  const now = Date.now();
-  typingIndicators.forEach((entry, matchId) => {
-    entry.users.forEach((userData) => {
-      if (now - userData.timestamp > 3000) {
-        entry.users.delete(userData.userId);
-      }
-    });
-    if (entry.users.size === 0) {
-      typingIndicators.delete(matchId);
-    }
-  });
-}, 1000);
 
 // Normalize message rows (DB may return snake_case keys)
 function normalizeMsg(m) {
@@ -148,79 +132,7 @@ router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res
   }
 });
 
-// Get unread count per conversation
-router.get('/unread/conversations', verifyToken, async (req, res) => {
-  try {
-    const msgs = await Message.find({});
-    const conversationUnread = {};
-    
-    // Group unread messages by matchId
-    msgs.forEach(m => {
-      if (String(m.receiverId) === String(req.userId) && !m.read) {
-        const matchId = String(m.matchId);
-        conversationUnread[matchId] = (conversationUnread[matchId] || 0) + 1;
-      }
-    });
-    
-    res.json(conversationUnread);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Search messages
-router.get('/search', verifyToken, async (req, res) => {
-  try {
-    const { query } = req.query;
-    
-    if (!query || query.trim().length === 0) {
-      return res.status(400).json({ error: 'Search query is required' });
-    }
-
-    // Find all messages where user is involved (sender or receiver)
-    const messages = await Message.find({
-      $and: [
-        { $or: [{ senderId: req.userId }, { receiverId: req.userId }] },
-        { message: { $regex: query, $options: 'i' } }
-      ]
-    }).sort({ createdAt: -1 }).limit(50);
-
-    // Group by matchId and include conversation info
-    const groupedResults = {};
-    
-    for (const msg of messages) {
-      const matchId = String(msg.matchId);
-      
-      if (!groupedResults[matchId]) {
-        const match = await Match.findById(matchId);
-        if (!match) continue;
-        
-        const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
-        const otherUser = await User.findById(otherUserId);
-        
-        groupedResults[matchId] = {
-          matchId,
-          otherUser: otherUser ? otherUser.toJSON() : null,
-          messages: []
-        };
-      }
-      
-      groupedResults[matchId].messages.push({
-        _id: msg._id,
-        senderId: msg.senderId,
-        message: msg.message,
-        createdAt: msg.createdAt,
-        read: msg.read
-      });
-    }
-
-    res.json({ results: Object.values(groupedResults) });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get total unread count
+// Get unread count
 router.get('/unread/count', verifyToken, async (req, res) => {
   try {
     const msgs = await Message.find({});
@@ -232,24 +144,7 @@ router.get('/unread/count', verifyToken, async (req, res) => {
   }
 });
 
-// Mark messages as read for a specific conversation
-router.post('/mark-read/:matchId', verifyToken, async (req, res) => {
-  try {
-    const { matchId } = req.params;
-    
-    // Only mark messages where current user is the receiver and from this specific conversation
-    await Message.updateMany(
-      { matchId, receiverId: req.userId, read: false },
-      { read: true, readAt: new Date() }
-    );
-    
-    res.json({ message: 'Messages in conversation marked as read' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Mark all unread messages for current user as read (fallback)
+// Mark all unread messages for current user as read
 router.post('/mark-all-read', verifyToken, async (req, res) => {
   try {
     await Message.updateMany({ receiverId: req.userId, read: false }, { read: true, readAt: new Date() });
@@ -323,16 +218,40 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
     const newMessage = normalizeMsg(newMessageRaw);
     console.log('[Messages] Message created successfully:', newMessage._id);
 
-    // Send email notification if enabled
-    if (receiverUser?.notificationPreferences?.email && receiverUser?.notificationPreferences?.messages) {
-      const messagePreview = message.length > 100 ? message.substring(0, 100) + '...' : message;
-      sendMessageNotification(receiverUser.email, receiverUser.name, senderUser.name, messagePreview).catch(err => console.error('Message email error:', err));
+    // Fire-and-forget email notification (respect recipient preferences)
+    try {
+      if (receiverUser?.notificationPreferences?.email && receiverUser?.notificationPreferences?.messages) {
+        const preview = message.trim().slice(0, 200);
+        sendMessageNotification(receiverUser.email, receiverUser.name || 'Friend', senderUser.name || 'Someone', preview)
+          .catch(err => console.error('[Email] sendMessageNotification error', err));
+      }
+    } catch (err) {
+      console.error('[Messages] Error triggering email notification', err);
+    }
+
+    // Push notifications (non-blocking)
+    try {
+      if (receiverUser?.notificationPreferences?.messages && Array.isArray(receiverUser.pushSubscriptions) && receiverUser.pushSubscriptions.length > 0) {
+        const payload = { title: `New message from ${senderUser?.name || 'Someone'}`, body: message.trim().slice(0,140), url: `${process.env.FRONTEND_URL || ''}/messages` };
+        pushService.sendPushToMany(receiverUser.pushSubscriptions, payload).catch(err => console.error('[Push] send push error', err));
+      }
+    } catch (err) {
+      console.error('[Messages] Error triggering push notification', err);
     }
 
     res.status(201).json({
       message: 'Message sent',
       data: newMessage
     });
+    // Emit real-time event to receiver via Socket.IO
+    try {
+      const io = getIO();
+      if (io) {
+        io.to(String(receiverId)).emit('new_message', { matchId: req.params.matchId, message: newMessage });
+      }
+    } catch (err) {
+      console.error('[Messages] Error emitting socket event', err);
+    }
   } catch (error) {
     console.error('[Messages] Error sending message:', error.message || error);
     res.status(500).json({ error: error.message });
@@ -387,79 +306,6 @@ router.put('/:matchId/read', verifyToken, async (req, res) => {
     await Message.updateMany({ matchId: req.params.matchId, receiverId: req.userId, read: false }, { read: true, readAt: new Date() });
 
     res.json({ message: 'Messages marked as read' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Typing indicator - user started typing
-router.post('/:matchId/typing', verifyToken, async (req, res) => {
-  try {
-    const { matchId } = req.params;
-
-    // Verify user is part of this match
-    const match = await Match.findOne({ _id: matchId });
-    if (!match || (String(match.user1) !== req.userId && String(match.user2) !== req.userId)) {
-      return res.status(403).json({ error: 'You are not part of this match' });
-    }
-
-    // Update or create typing indicator
-    if (!typingIndicators.has(matchId)) {
-      typingIndicators.set(matchId, { users: new Set() });
-    }
-
-    const entry = typingIndicators.get(matchId);
-    
-    // Check if user already typing
-    let foundUser = false;
-    for (let userData of entry.users) {
-      if (String(userData.userId) === req.userId) {
-        userData.timestamp = Date.now(); // Update timestamp
-        foundUser = true;
-        break;
-      }
-    }
-
-    // Add new typing user
-    if (!foundUser) {
-      entry.users.add({
-        userId: req.userId,
-        timestamp: Date.now()
-      });
-    }
-
-    res.json({ message: 'Typing indicator updated' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get typing indicators for a conversation
-router.get('/:matchId/typing', verifyToken, async (req, res) => {
-  try {
-    const { matchId } = req.params;
-
-    // Verify user is part of this match
-    const match = await Match.findOne({ _id: matchId });
-    if (!match || (String(match.user1) !== req.userId && String(match.user2) !== req.userId)) {
-      return res.status(403).json({ error: 'You are not part of this match' });
-    }
-
-    // Get users currently typing (exclude self)
-    const typingUsers = [];
-    const entry = typingIndicators.get(matchId);
-    
-    if (entry) {
-      entry.users.forEach(userData => {
-        if (String(userData.userId) !== req.userId) {
-          typingUsers.push({
-            userId: userData.userId
-          });
-        }
-      });
-    }
-
-    res.json({ typingUsers });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

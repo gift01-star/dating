@@ -67,8 +67,6 @@ function LikesPage({ user }) {
           await axios.post(`${API_URL}/matches/mark-likes-seen`, {}, { headers: { Authorization: `Bearer ${token}` } });
           try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
           try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
-          // Update App-level notifications
-          try { window.__UPDATE_APP_NOTIFICATIONS?.(prev => ({ ...prev, likes: 0 })); } catch (e) {}
         }
       } catch (err) {
         // ignore

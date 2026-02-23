@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaFire, FaHeart, FaComments, FaUser } from 'react-icons/fa';
+import { FaFire, FaHeart, FaComments, FaUser, FaBell } from 'react-icons/fa';
+import { registerServiceWorker, askPermission, subscribeUserToPush } from '../utils/push';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -9,6 +10,7 @@ function BottomNavBar({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [counts, setCounts] = useState({ matches: 0, likes: 0, messages: 0 });
+  const [pushEnabled, setPushEnabled] = useState(false);
 
   const token = localStorage.getItem('token');
 
@@ -22,8 +24,8 @@ function BottomNavBar({ user }) {
     let backoffMs = 60000; // start with 60s
 
     const CACHE_KEY = 'nav_counts_cache_v1';
-    const MIN_POLL = 2000; // 2 seconds for real-time feel (like WhatsApp)
-    const MAX_BACKOFF = 10000; // 10 seconds max backoff
+    const MIN_POLL = 60000; // 60s
+    const MAX_BACKOFF = 5 * 60 * 1000; // 5 minutes
 
     const readCache = () => {
       try {
@@ -46,7 +48,7 @@ function BottomNavBar({ user }) {
       if (!token) return;
 
       const cached = readCache();
-      if (cached && (Date.now() - (cached.ts || 0) < 1000)) {
+      if (cached && (Date.now() - (cached.ts || 0) < 20000)) {
         setCounts(cached.data);
         return;
       }
@@ -65,8 +67,6 @@ function BottomNavBar({ user }) {
           setCounts(newCounts);
           writeCache(newCounts);
           backoffMs = MIN_POLL;
-          // Update App-level notifications for browser tab title
-          try { window.__UPDATE_APP_NOTIFICATIONS__?.(newCounts); } catch (e) {}
         }
       } catch (err) {
         const status = err?.response?.status;
@@ -82,6 +82,19 @@ function BottomNavBar({ user }) {
         }
       }
     };
+
+    // Try to detect existing push subscription
+    (async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg) {
+            const sub = await reg.pushManager.getSubscription();
+            setPushEnabled(!!sub);
+          }
+        }
+      } catch (e) {}
+    })();
 
     // expose global refresh so pages can trigger immediate refresh
     try { window.__REFRESH_NAV_COUNTS__ = fetchCounts; } catch (e) {}
@@ -137,6 +150,41 @@ function BottomNavBar({ user }) {
     }
   ];
 
+  // Add push/notifications control as an extra button (doesn't navigate)
+  const handleTogglePush = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // register SW and ask permission
+      const reg = await registerServiceWorker();
+      const granted = await askPermission();
+      if (!granted || !reg) {
+        alert('Push permission denied or service worker unavailable.');
+        return;
+      }
+      const subscription = await subscribeUserToPush(reg);
+      if (!subscription) {
+        alert('Could not subscribe to push notifications.');
+        return;
+      }
+
+      // send subscription to backend
+      await fetch(`${process.env.REACT_APP_API_URL || '/api'}/notifications/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ subscription })
+      });
+
+      setPushEnabled(true);
+      alert('Subscribed to push notifications');
+    } catch (err) {
+      console.error('Push subscribe error', err);
+      alert('Error subscribing to push notifications');
+    }
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
       <div className="max-w-4xl mx-auto">
@@ -147,37 +195,49 @@ function BottomNavBar({ user }) {
               onClick={async () => {
                 try {
                   const token = localStorage.getItem('token');
-                  // Messages are marked as read when opening specific chat (per-conversation, like WhatsApp)
-                  // Not when clicking the messages icon
+                  if (item.path === '/messages' && token) {
+                    await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                    setCounts(prev => ({ ...prev, messages: 0 }));
+                    try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
+                    try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
+                  }
                   if (item.path === '/likes' && token) {
                     await axios.post(`${API_URL}/matches/mark-likes-seen`, {}, { headers: { Authorization: `Bearer ${token}` } });
                     setCounts(prev => ({ ...prev, likes: 0 }));
                     try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
                     try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
-                    try { window.__UPDATE_APP_NOTIFICATIONS?.(prev => ({ ...prev, likes: 0 })); } catch (e) {}
                   }
                 } catch (err) {
                   // ignore errors
                 }
                 navigate(item.path);
               }}
-              className={`flex flex-col items-center justify-center py-3 px-4 w-full transition-colors ${
+              className={`relative flex flex-col items-center justify-center py-3 px-4 w-full transition-colors ${
                 isActive(item.path)
                   ? `${item.color} font-semibold`
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <div className={`relative ${isActive(item.path) ? item.color : 'text-gray-500'}`}>
+              <div className={isActive(item.path) ? item.color : 'text-gray-500'}>
                 {item.icon}
-                {item.badge > 0 && (
-                  <span className="absolute -top-2 -right-2 inline-flex items-center justify-center min-w-5 h-5 px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full shadow-lg animate-pulse">
-                    {item.badge > 99 ? '99+' : item.badge}
-                  </span>
-                )}
               </div>
+              {item.badge > 0 && (
+                <span className="absolute -top-0.5 right-6 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
               <span className="text-xs mt-1 font-medium">{item.label}</span>
             </button>
           ))}
+          <button
+            onClick={handleTogglePush}
+            className={`relative flex flex-col items-center justify-center py-3 px-4 w-full transition-colors text-gray-500 hover:text-gray-700`}
+          >
+            <div className={pushEnabled ? 'text-yellow-500' : 'text-gray-500'}>
+              <FaBell size={20} />
+            </div>
+            <span className="text-xs mt-1 font-medium">Alerts</span>
+          </button>
         </div>
       </div>
     </div>

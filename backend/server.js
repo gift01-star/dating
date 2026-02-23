@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import jwt from 'jsonwebtoken';
+import http from 'http';
+import { Server as IOServer } from 'socket.io';
+import { setIO } from './utils/socket.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -21,6 +24,7 @@ import reportRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
 import paymentRoutes from './routes/payments.js';
 import authRoutes from './routes/auth.js';
+import notificationsRoutes from './routes/notifications.js';
 
 // Import database
 import { User } from './database.js';
@@ -51,6 +55,61 @@ if (process.env.REDIS_URL && !require('./utils/cache.js').redis) {
 }
 
 const app = express();
+
+// Create HTTP server and attach Socket.IO
+const server = http.createServer(app);
+const io = new IOServer(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+// Wire IO instance for routes to use
+setIO(io);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  try {
+    const token = socket.handshake.auth?.token || null;
+    if (!token) {
+      // allow anonymous connections but log
+      console.info('[Socket] Connection without token');
+      return;
+    }
+
+    let decoded = null;
+    try { decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret'); } catch (e) { decoded = null; }
+    if (!decoded || !decoded.id) {
+      console.info('[Socket] Invalid token on connection');
+      return;
+    }
+
+    const userId = decoded.id;
+    socket.join(userId);
+    console.info('[Socket] User connected and joined room:', userId);
+
+    socket.on('typing', (data) => {
+      const { toUserId, matchId } = data || {};
+      if (toUserId) {
+        io.to(String(toUserId)).emit('typing', { from: userId, matchId });
+      }
+    });
+
+    socket.on('stop_typing', (data) => {
+      const { toUserId, matchId } = data || {};
+      if (toUserId) {
+        io.to(String(toUserId)).emit('stop_typing', { from: userId, matchId });
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.info('[Socket] disconnected', userId, reason);
+    });
+  } catch (err) {
+    console.error('[Socket] connection handler error', err);
+  }
+});
 
 // Create uploads directory if it doesn't exist (fallback for when Cloudinary is not available)
 const uploadsDir = './uploads';
@@ -375,6 +434,7 @@ app.delete('/api/users/photos/:publicId', async (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationsRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -424,6 +484,6 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

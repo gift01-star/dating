@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { Match, User } from '../database.js';
 import { sendLikeNotification, sendMatchNotification } from '../utils/emailService.js';
+import pushService from '../utils/pushService.js';
 
 const router = express.Router();
 
@@ -85,15 +86,35 @@ router.post('/like/:userId', verifyToken, requireMinimumProfile, async (req, res
 
       const updatedMatch = await Match.findOne({ _id: match._id });
 
-      // Send match notification emails
-      const currentUser = await User.findById(req.userId);
-      const targetUser = await User.findById(targetUserId);
+      // Notify both users of the match (non-blocking)
+      try {
+        const userA = await User.findById(req.userId);
+        const userB = await User.findById(targetUserId);
 
-      if (targetUser?.notificationPreferences?.email && targetUser?.notificationPreferences?.matches) {
-        sendMatchNotification(targetUser.email, targetUser.name, currentUser.name).catch(err => console.error('Match email error:', err));
-      }
-      if (currentUser?.notificationPreferences?.email && currentUser?.notificationPreferences?.matches) {
-        sendMatchNotification(currentUser.email, currentUser.name, targetUser.name).catch(err => console.error('Match email error:', err));
+        if (userA && userA.notificationPreferences?.email && userA.notificationPreferences?.matches) {
+          sendMatchNotification(userA.email, userA.name || 'Friend', userB?.name || 'Someone')
+            .catch(err => console.error('[Email] sendMatchNotification error for userA', err));
+        }
+
+        if (userB && userB.notificationPreferences?.email && userB.notificationPreferences?.matches) {
+          sendMatchNotification(userB.email, userB.name || 'Friend', userA?.name || 'Someone')
+            .catch(err => console.error('[Email] sendMatchNotification error for userB', err));
+        }
+        // Push notifications for matches
+        try {
+          if (userA && userA.notificationPreferences?.matches && Array.isArray(userA.pushSubscriptions) && userA.pushSubscriptions.length > 0) {
+            const payloadA = { title: `You matched with ${userB?.name || 'Someone'}`, body: 'Start chatting now!', url: `${process.env.FRONTEND_URL || ''}/messages` };
+            pushService.sendPushToMany(userA.pushSubscriptions, payloadA).catch(err => console.error('[Push] match push error userA', err));
+          }
+          if (userB && userB.notificationPreferences?.matches && Array.isArray(userB.pushSubscriptions) && userB.pushSubscriptions.length > 0) {
+            const payloadB = { title: `You matched with ${userA?.name || 'Someone'}`, body: 'Start chatting now!', url: `${process.env.FRONTEND_URL || ''}/messages` };
+            pushService.sendPushToMany(userB.pushSubscriptions, payloadB).catch(err => console.error('[Push] match push error userB', err));
+          }
+        } catch (err) {
+          console.error('[Matches] Error triggering match push notifications', err);
+        }
+      } catch (err) {
+        console.error('[Matches] Error triggering match notifications', err);
       }
 
       return res.status(201).json({
@@ -102,13 +123,17 @@ router.post('/like/:userId', verifyToken, requireMinimumProfile, async (req, res
       });
     }
 
-    // Send like notification email
-    const targetUser = await User.findById(targetUserId);
-    const currentUser = await User.findById(req.userId);
-    
-    if (targetUser?.notificationPreferences?.email && targetUser?.notificationPreferences?.likes) {
-      const senderPhoto = currentUser?.photos?.[0]?.url || null;
-      sendLikeNotification(targetUser.email, targetUser.name, currentUser.name, senderPhoto).catch(err => console.error('Like email error:', err));
+    // Notify the target user that they received a like (non-blocking)
+    try {
+      const targetUser = await User.findById(targetUserId);
+      const senderUser = await User.findById(req.userId);
+
+      if (targetUser && targetUser.notificationPreferences?.email && targetUser.notificationPreferences?.matches) {
+        sendLikeNotification(targetUser.email, targetUser.name || 'Friend', senderUser?.name || 'Someone', senderUser?.photos?.[0]?.url)
+          .catch(err => console.error('[Email] sendLikeNotification error', err));
+      }
+    } catch (err) {
+      console.error('[Matches] Error triggering like notification', err);
     }
 
     res.status(201).json({

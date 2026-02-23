@@ -76,26 +76,18 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  profileViews: [{
-    viewerId: mongoose.Schema.Types.ObjectId,
-    viewedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
   notificationPreferences: {
     email: { type: Boolean, default: true },
-    likes: { type: Boolean, default: true },
     matches: { type: Boolean, default: true },
     messages: { type: Boolean, default: true }
   },
-  // Two-factor authentication
-  twoFactorEnabled: { type: Boolean, default: false },
-  twoFactorSecret: String,
-  twoFactorBackupCodes: [String],
-  // Favorites/Bookmarks
-  favorites: [mongoose.Schema.Types.ObjectId],
-  matchesUnlocked: { type: Boolean, default: false },
+  // Push subscription objects for browser push notifications
+  pushSubscriptions: {
+    type: [Object],
+    default: []
+  },
+  // Messaging controls: 2 free messages per conversation; set to true after successful payment
+  messagesUnlocked: { type: Boolean, default: false },
   freeMessagesRemaining: { type: Number, default: 2 },
   // Per-conversation unlocks (matchId strings)
   unlockedMatches: { type: [String], default: [] },
