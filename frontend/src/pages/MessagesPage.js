@@ -13,16 +13,34 @@ function MessagesPage({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [imageErrors, setImageErrors] = useState({});
+  const [unreadCounts, setUnreadCounts] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(fetchConversations, 5000); // refresh conversations periodically
+    fetchUnreadCounts();
+    // Poll for unread counts every 3 seconds (real-time like WhatsApp)
+    const interval = setInterval(() => {
+      fetchConversations();
+      fetchUnreadCounts();
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
   const handleImageError = (userId) => {
     setImageErrors(prev => ({ ...prev, [userId]: true }));
+  };
+
+  const fetchUnreadCounts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/messages/unread/conversations`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUnreadCounts(response.data || {});
+    } catch (err) {
+      console.error('Error fetching unread counts:', err);
+    }
   };
 
   const fetchConversations = async () => {
@@ -33,19 +51,7 @@ function MessagesPage({ user }) {
       });
 
       setConversations(response.data.conversations || []);
-      // Mark all as read when viewing the conversations list so the global unread badge clears
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
-          try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
-          try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
-          // Update App-level notifications
-          try { window.__UPDATE_APP_NOTIFICATIONS?.(prev => ({ ...prev, messages: 0 })); } catch (e) {}
-        }
-      } catch (err) {
-        // ignore
-      }
+      // Note: Don't mark as read here - messages are marked as read when you open the specific chat
     } catch (err) {
       const msg = err.response?.data?.error || '';
       const profileCompletion = err.response?.data?.profileCompletion;
@@ -187,9 +193,9 @@ function MessagesPage({ user }) {
                     </div>
 
                     {/* Unread Badge */}
-                    {conversation.unreadCount > 0 && (
-                      <div className="flex-shrink-0 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
-                        {conversation.unreadCount}
+                    {unreadCounts[conversation._id] > 0 && (
+                      <div className="flex-shrink-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow-lg">
+                        {unreadCounts[conversation._id] > 99 ? '99+' : unreadCounts[conversation._id]}
                       </div>
                     )}
                   </div>

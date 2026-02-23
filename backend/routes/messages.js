@@ -129,7 +129,27 @@ router.get('/conversations', verifyToken, requireMinimumProfile, async (req, res
   }
 });
 
-// Get unread count
+// Get unread count per conversation
+router.get('/unread/conversations', verifyToken, async (req, res) => {
+  try {
+    const msgs = await Message.find({});
+    const conversationUnread = {};
+    
+    // Group unread messages by matchId
+    msgs.forEach(m => {
+      if (String(m.receiverId) === String(req.userId) && !m.read) {
+        const matchId = String(m.matchId);
+        conversationUnread[matchId] = (conversationUnread[matchId] || 0) + 1;
+      }
+    });
+    
+    res.json(conversationUnread);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get total unread count
 router.get('/unread/count', verifyToken, async (req, res) => {
   try {
     const msgs = await Message.find({});
@@ -141,7 +161,24 @@ router.get('/unread/count', verifyToken, async (req, res) => {
   }
 });
 
-// Mark all unread messages for current user as read
+// Mark messages as read for a specific conversation
+router.post('/mark-read/:matchId', verifyToken, async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    
+    // Only mark messages where current user is the receiver and from this specific conversation
+    await Message.updateMany(
+      { matchId, receiverId: req.userId, read: false },
+      { read: true, readAt: new Date() }
+    );
+    
+    res.json({ message: 'Messages in conversation marked as read' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark all unread messages for current user as read (fallback)
 router.post('/mark-all-read', verifyToken, async (req, res) => {
   try {
     await Message.updateMany({ receiverId: req.userId, read: false }, { read: true, readAt: new Date() });

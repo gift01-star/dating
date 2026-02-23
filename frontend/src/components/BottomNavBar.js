@@ -22,8 +22,8 @@ function BottomNavBar({ user }) {
     let backoffMs = 60000; // start with 60s
 
     const CACHE_KEY = 'nav_counts_cache_v1';
-    const MIN_POLL = 60000; // 60s
-    const MAX_BACKOFF = 5 * 60 * 1000; // 5 minutes
+    const MIN_POLL = 2000; // 2 seconds for real-time feel (like WhatsApp)
+    const MAX_BACKOFF = 10000; // 10 seconds max backoff
 
     const readCache = () => {
       try {
@@ -46,7 +46,7 @@ function BottomNavBar({ user }) {
       if (!token) return;
 
       const cached = readCache();
-      if (cached && (Date.now() - (cached.ts || 0) < 20000)) {
+      if (cached && (Date.now() - (cached.ts || 0) < 1000)) {
         setCounts(cached.data);
         return;
       }
@@ -147,13 +147,8 @@ function BottomNavBar({ user }) {
               onClick={async () => {
                 try {
                   const token = localStorage.getItem('token');
-                  if (item.path === '/messages' && token) {
-                    await axios.post(`${API_URL}/messages/mark-all-read`, {}, { headers: { Authorization: `Bearer ${token}` } });
-                    setCounts(prev => ({ ...prev, messages: 0 }));
-                    try { sessionStorage.removeItem('nav_counts_cache_v1'); } catch (e) {}
-                    try { window.__REFRESH_NAV_COUNTS__?.(); } catch (e) {}
-                    try { window.__UPDATE_APP_NOTIFICATIONS?.(prev => ({ ...prev, messages: 0 })); } catch (e) {}
-                  }
+                  // Messages are marked as read when opening specific chat (per-conversation, like WhatsApp)
+                  // Not when clicking the messages icon
                   if (item.path === '/likes' && token) {
                     await axios.post(`${API_URL}/matches/mark-likes-seen`, {}, { headers: { Authorization: `Bearer ${token}` } });
                     setCounts(prev => ({ ...prev, likes: 0 }));
