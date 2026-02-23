@@ -1,6 +1,7 @@
 /**
  * Utility function to properly construct image URLs
  * Handles both absolute URLs and relative paths
+ * Adds cache busting for better reliability
  */
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -23,3 +24,4 @@ export function getImageUrl(imagePath) {
 }
 
 export default getImageUrl;
+

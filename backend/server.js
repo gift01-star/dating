@@ -7,6 +7,8 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
 
 // Cache helper (Redis or in-memory fallback)
 import * as cache from './utils/cache.js';
@@ -25,6 +27,19 @@ import { User } from './database.js';
 
 dotenv.config();
 
+// Configure Cloudinary
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+  console.info('✓ Cloudinary configured for image storage');
+} else {
+  console.warn('⚠️ Cloudinary not configured. Images will be stored locally and may be lost on server restart.');
+  console.warn('Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET for persistent image storage.');
+}
+
 // Startup warnings (non-fatal)
 const paymentsEnabled = (process.env.PAYMENTS_ENABLED || 'true') === 'true';
 if (paymentsEnabled && !(process.env.PAYCHANGU_SECRET || process.env.FLUTTERWAVE_SECRET_KEY)) {
@@ -37,22 +52,14 @@ if (process.env.REDIS_URL && !require('./utils/cache.js').redis) {
 
 const app = express();
 
-// Create uploads directory if it doesn't exist
+// Create uploads directory if it doesn't exist (fallback for when Cloudinary is not available)
 const uploadsDir = './uploads';
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for file uploads (use memory storage for Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -190,15 +197,53 @@ app.post('/api/users/upload-photo', upload.single('photo'), async (req, res) => 
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Construct photo URL - use API_URL from env if available, otherwise construct from request
-    let photoUrl;
-    if (process.env.API_URL) {
-      photoUrl = `${process.env.API_URL}/uploads/${req.file.filename}`;
+    let photoUrl, publicId;
+    
+    // Use Cloudinary if configured
+    if (cloudinary.config().cloud_name) {
+      try {
+        // Upload to Cloudinary using buffer stream
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'edulove/users',
+              resource_type: 'auto',
+              quality: 'auto:good', // Optimize quality
+              fetch_format: 'auto'   // Auto format for optimization
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          
+          stream.end(req.file.buffer);
+        });
+        
+        photoUrl = result.secure_url;
+        publicId = result.public_id;
+        console.log(`[Photo Upload] Uploaded to Cloudinary: ${publicId}`);
+      } catch (cloudinaryError) {
+        console.error('[Photo Upload] Cloudinary error:', cloudinaryError.message);
+        return res.status(500).json({ error: 'Failed to upload photo to cloud storage' });
+      }
     } else {
-      // For development: construct from request, preferring HTTPS
-      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-      const host = req.headers['x-forwarded-host'] || req.get('host');
-      photoUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+      // Fallback to local storage if Cloudinary is not configured
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const filename = `photo-${uniqueSuffix}${path.extname(req.file.originalname)}`;
+      const filePath = path.join(uploadsDir, filename);
+      
+      fs.writeFileSync(filePath, req.file.buffer);
+      
+      if (process.env.API_URL) {
+        photoUrl = `${process.env.API_URL}/uploads/${filename}`;
+      } else {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+        const host = req.headers['x-forwarded-host'] || req.get('host');
+        photoUrl = `${protocol}://${host}/uploads/${filename}`;
+      }
+      publicId = filename;
+      console.warn('[Photo Upload] Using local storage (not persistent)');
     }
 
     // Add photo to user's photos array
@@ -208,17 +253,32 @@ app.post('/api/users/upload-photo', upload.single('photo'), async (req, res) => 
 
     user.photos.push({
       url: photoUrl,
-      publicId: req.file.filename,
+      publicId: publicId,
       uploadedAt: new Date()
     });
 
-    // Keep only last 10 photos
-    if (user.photos.length > 10) {
-      const removedPhoto = user.photos.shift();
-      // Delete old file
-      const filePath = path.join(uploadsDir, removedPhoto.publicId);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    // Keep only last 5 photos, delete older ones
+    if (user.photos.length > 5) {
+      const removedPhotos = user.photos.splice(0, user.photos.length - 5);
+      
+      // Delete removed photos from Cloudinary
+      if (cloudinary.config().cloud_name) {
+        for (const photo of removedPhotos) {
+          try {
+            await cloudinary.uploader.destroy(photo.publicId);
+            console.log(`[Photo Delete] Deleted from Cloudinary: ${photo.publicId}`);
+          } catch (err) {
+            console.error(`[Photo Delete] Failed to delete ${photo.publicId}:`, err.message);
+          }
+        }
+      } else {
+        // Delete local files
+        for (const photo of removedPhotos) {
+          const filePath = path.join(uploadsDir, photo.publicId);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
       }
     }
 
@@ -253,9 +313,11 @@ app.post('/api/users/upload-photo', upload.single('photo'), async (req, res) => 
       user: updatedUser.toJSON()
     });
   } catch (error) {
+    console.error('[Photo Upload] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Delete Photo Endpoint
 app.delete('/api/users/photos/:publicId', async (req, res) => {
@@ -280,10 +342,21 @@ app.delete('/api/users/photos/:publicId', async (req, res) => {
     const photo = user.photos[photoIndex];
     user.photos.splice(photoIndex, 1);
 
-    // Delete file
-    const filePath = path.join(uploadsDir, photo.publicId);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete from Cloudinary if configured, otherwise from local storage
+    if (cloudinary.config().cloud_name) {
+      try {
+        await cloudinary.uploader.destroy(photo.publicId);
+        console.log(`[Photo Delete] Deleted from Cloudinary: ${photo.publicId}`);
+      } catch (err) {
+        console.error(`[Photo Delete] Failed to delete from Cloudinary: ${err.message}`);
+        // Don't fail the request if Cloudinary deletion fails
+      }
+    } else {
+      // Delete local file
+      const filePath = path.join(uploadsDir, photo.publicId);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     await User.updateOne({ _id: user._id }, { photos: user.photos });
@@ -293,6 +366,7 @@ app.delete('/api/users/photos/:publicId', async (req, res) => {
       photos: user.photos
     });
   } catch (error) {
+    console.error('[Photo Delete] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
