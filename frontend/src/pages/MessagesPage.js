@@ -11,6 +11,8 @@ function MessagesPage({ user }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState('');
   const [imageErrors, setImageErrors] = useState({});
   const [unreadCounts, setUnreadCounts] = useState({});
@@ -26,6 +28,31 @@ function MessagesPage({ user }) {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleSearch = async (term) => {
+    setSearchTerm(term);
+    
+    if (term.trim().length === 0) {
+      setIsSearching(false);
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/messages/search`, {
+        params: { query: term },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSearchResults(response.data.results || []);
+    } catch (err) {
+      console.error('Error searching messages:', err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleImageError = (userId) => {
     setImageErrors(prev => ({ ...prev, [userId]: true }));
@@ -71,10 +98,14 @@ function MessagesPage({ user }) {
     }
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.user?.nickname?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter conversations only when not doing a message search
+  const filteredConversations = !isSearching && searchTerm.trim().length === 0 
+    ? conversations 
+    : conversations.filter(conv =>
+        (searchTerm.trim().length === 0 || isSearching) ? false :
+        (conv.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         conv.user?.nickname?.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
 
   if (loading) {
     return (
@@ -112,9 +143,9 @@ function MessagesPage({ user }) {
               <FaSearch className="absolute left-3 top-3 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search conversations..."
+                placeholder="Search messages or people..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
               />
             </div>
@@ -129,7 +160,60 @@ function MessagesPage({ user }) {
             </div>
           )}
 
-          {filteredConversations.length === 0 ? (
+          {isSearching && searchTerm.trim().length > 0 && (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+              <span className="text-gray-600">Searching messages...</span>
+            </div>
+          )}
+
+          {!isSearching && searchTerm.trim().length > 0 && searchResults.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <FaComments className="text-4xl text-gray-300 mb-4" />
+              <p className="text-gray-500">No results found</p>
+            </div>
+          )}
+
+          {!isSearching && searchTerm.trim().length > 0 && searchResults.length > 0 && (
+            <div className="divide-y divide-gray-200">
+              {searchResults.map((result) => (
+                <button
+                  key={result.matchId}
+                  onClick={() => navigate(`/chat/${result.matchId}`)}
+                  className="w-full bg-white hover:bg-gray-50 p-4 text-left transition text-sm md:text-base"
+                >
+                  <div className="flex items-start gap-3 mb-2">
+                    {result.otherUser?.photos && result.otherUser.photos.length > 0 && !imageErrors[result.otherUser._id] ? (
+                      <img
+                        src={getImageUrl(result.otherUser.photos[0].url)}
+                        alt={result.otherUser.name}
+                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        onError={() => handleImageError(result.otherUser._id)}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {(result.otherUser?.name || 'U').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <h4 className="font-semibold text-gray-800">{result.otherUser?.name}</h4>
+                  </div>
+                  {result.messages.slice(0, 2).map((msg, idx) => (
+                    <div key={msg._id || idx} className="text-xs text-gray-600 mb-2 pl-13 border-l-2 border-blue-200 pl-4">
+                      <p className="font-medium text-gray-500 mb-1">
+                        {String(msg.senderId) === user?._id ? 'You' : result.otherUser?.name}:
+                      </p>
+                      <p className="truncate italic text-gray-500">"{msg.message}"</p>
+                    </div>
+                  ))}
+                  {result.messages.length > 2 && (
+                    <p className="text-xs text-blue-500">+{result.messages.length - 2} more</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredConversations.length === 0 && !isSearching && searchTerm.trim().length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4">
               <FaComments size={48} className="text-blue-300 mb-4" />
               <p className="text-gray-600 text-lg mb-2">No conversations yet</p>

@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { Match, User } from '../database.js';
+import { sendLikeNotification, sendMatchNotification } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -84,10 +85,30 @@ router.post('/like/:userId', verifyToken, requireMinimumProfile, async (req, res
 
       const updatedMatch = await Match.findOne({ _id: match._id });
 
+      // Send match notification emails
+      const currentUser = await User.findById(req.userId);
+      const targetUser = await User.findById(targetUserId);
+
+      if (targetUser?.notificationPreferences?.email && targetUser?.notificationPreferences?.matches) {
+        sendMatchNotification(targetUser.email, targetUser.name, currentUser.name).catch(err => console.error('Match email error:', err));
+      }
+      if (currentUser?.notificationPreferences?.email && currentUser?.notificationPreferences?.matches) {
+        sendMatchNotification(currentUser.email, currentUser.name, targetUser.name).catch(err => console.error('Match email error:', err));
+      }
+
       return res.status(201).json({
         message: 'It\'s a match!',
         match: updatedMatch.toJSON()
       });
+    }
+
+    // Send like notification email
+    const targetUser = await User.findById(targetUserId);
+    const currentUser = await User.findById(req.userId);
+    
+    if (targetUser?.notificationPreferences?.email && targetUser?.notificationPreferences?.likes) {
+      const senderPhoto = currentUser?.photos?.[0]?.url || null;
+      sendLikeNotification(targetUser.email, targetUser.name, currentUser.name, senderPhoto).catch(err => console.error('Like email error:', err));
     }
 
     res.status(201).json({

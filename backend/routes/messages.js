@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { Message, Match, User } from '../database.js';
+import { sendMessageNotification } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -149,6 +150,57 @@ router.get('/unread/conversations', verifyToken, async (req, res) => {
   }
 });
 
+// Search messages
+router.get('/search', verifyToken, async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    // Find all messages where user is involved (sender or receiver)
+    const messages = await Message.find({
+      $and: [
+        { $or: [{ senderId: req.userId }, { receiverId: req.userId }] },
+        { message: { $regex: query, $options: 'i' } }
+      ]
+    }).sort({ createdAt: -1 }).limit(50);
+
+    // Group by matchId and include conversation info
+    const groupedResults = {};
+    
+    for (const msg of messages) {
+      const matchId = String(msg.matchId);
+      
+      if (!groupedResults[matchId]) {
+        const match = await Match.findById(matchId);
+        if (!match) continue;
+        
+        const otherUserId = String(match.user1) === req.userId ? match.user2 : match.user1;
+        const otherUser = await User.findById(otherUserId);
+        
+        groupedResults[matchId] = {
+          matchId,
+          otherUser: otherUser ? otherUser.toJSON() : null,
+          messages: []
+        };
+      }
+      
+      groupedResults[matchId].messages.push({
+        _id: msg._id,
+        senderId: msg.senderId,
+        message: msg.message,
+        createdAt: msg.createdAt,
+        read: msg.read
+      });
+    }
+
+    res.json({ results: Object.values(groupedResults) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+
 // Get total unread count
 router.get('/unread/count', verifyToken, async (req, res) => {
   try {
@@ -251,6 +303,12 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
 
     const newMessage = normalizeMsg(newMessageRaw);
     console.log('[Messages] Message created successfully:', newMessage._id);
+
+    // Send email notification if enabled
+    if (receiverUser?.notificationPreferences?.email && receiverUser?.notificationPreferences?.messages) {
+      const messagePreview = message.length > 100 ? message.substring(0, 100) + '...' : message;
+      sendMessageNotification(receiverUser.email, receiverUser.name, senderUser.name, messagePreview).catch(err => console.error('Message email error:', err));
+    }
 
     res.status(201).json({
       message: 'Message sent',

@@ -10,6 +10,8 @@ import DiscoverPage from './pages/DiscoverPage';
 import MatchesPage from './pages/MatchesPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
+import ProfileViewsPage from './pages/ProfileViewsPage';
+import FavoritesPage from './pages/FavoritesPage';
 import AdminDashboard from './pages/AdminDashboard';
 import TermsPage from './pages/TermsPage';
 import CommunityGuidelinesPage from './pages/CommunityGuidelinesPage';
@@ -123,6 +125,9 @@ function App() {
             <Route path="/messages" element={renderProtected(<MessagesPage user={user} handleLogout={handleLogout} />)} />
             <Route path="/chat/:matchId" element={renderProtected(<ChatPage user={user} handleLogout={handleLogout} />)} />
             <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} handleLogout={handleLogout} />} />
+            <Route path="/profile/:id" element={renderProtected(<ProfilePage user={user} setUser={setUser} handleLogout={handleLogout} />)} />
+            <Route path="/profile-viewers" element={renderProtected(<ProfileViewsPage user={user} handleLogout={handleLogout} />)} />
+            <Route path="/favorites" element={renderProtected(<FavoritesPage user={user} handleLogout={handleLogout} />)} />
             <Route path="/payments" element={<PaymentsPage user={user} handleLogout={handleLogout} />} />
             <Route path="/payments/success" element={<PaymentsPage user={user} handleLogout={handleLogout} />} />
             <Route path="/admin" element={<AdminDashboard />} />

@@ -28,6 +28,27 @@ router.get('/profile/:id', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    // Track profile view if viewing another user's profile
+    if (String(req.params.id) !== req.userId) {
+      const alreadyViewed = user.profileViews?.some(v => String(v.viewerId) === req.userId);
+      
+      if (!alreadyViewed) {
+        if (!user.profileViews) user.profileViews = [];
+        user.profileViews.push({
+          viewerId: req.userId,
+          viewedAt: new Date()
+        });
+        
+        // Keep only last 100 views
+        if (user.profileViews.length > 100) {
+          user.profileViews = user.profileViews.slice(-100);
+        }
+        
+        await user.save();
+      }
+    }
+    
     res.json(user.toJSON());
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -392,6 +413,255 @@ router.post('/unblock/:id', verifyToken, async (req, res) => {
     await User.updateOne({ _id: req.userId }, { blocked: user.blocked });
 
     res.json({ message: 'User unblocked', blocked: user.blocked });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get/Update notification preferences
+router.get('/notification-preferences', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    res.json({
+      notificationPreferences: user.notificationPreferences || {
+        email: true,
+        likes: true,
+        matches: true,
+        messages: true
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/notification-preferences', verifyToken, async (req, res) => {
+  try {
+    const { email, likes, matches, messages } = req.body;
+    
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    user.notificationPreferences = {
+      email: email !== undefined ? email : (user.notificationPreferences?.email ?? true),
+      likes: likes !== undefined ? likes : (user.notificationPreferences?.likes ?? true),
+      matches: matches !== undefined ? matches : (user.notificationPreferences?.matches ?? true),
+      messages: messages !== undefined ? messages : (user.notificationPreferences?.messages ?? true)
+    };
+    
+    await user.save();
+    
+    res.json({
+      message: 'Notification preferences updated',
+      notificationPreferences: user.notificationPreferences
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get profile viewers
+router.get('/me/profile-viewers', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const viewers = user.profileViews?.slice().reverse() || [];
+    
+    // Fetch viewer details
+    const viewerDetails = await Promise.all(
+      viewers.map(async (view) => {
+        const viewer = await User.findById(view.viewerId);
+        return {
+          _id: view.viewerId,
+          name: viewer?.name,
+          nickname: viewer?.nickname,
+          photo: viewer?.photos?.[0]?.url,
+          age: viewer?.age,
+          university: viewer?.university,
+          viewedAt: view.viewedAt
+        };
+      })
+    );
+    
+    res.json({
+      viewersCount: viewerDetails.length,
+      viewers: viewerDetails
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get total profile view count for current user
+router.get('/me/profile-view-count', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    res.json({ viewCount: user.profileViews?.length || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add to favorites
+router.post('/favorites/:userId', verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Check if user exists
+    const favoriteUser = await User.findById(userId);
+    if (!favoriteUser) return res.status(404).json({ error: 'User not found' });
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Add to favorites if not already there
+    if (!user.favorites) user.favorites = [];
+    if (!user.favorites.includes(userId)) {
+      user.favorites.push(userId);
+      await user.save();
+    }
+
+    res.json({ message: 'Added to favorites', favorites: user.favorites });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove from favorites
+router.delete('/favorites/:userId', verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!user.favorites) user.favorites = [];
+    user.favorites = user.favorites.filter(id => String(id) !== userId);
+    await user.save();
+
+    res.json({ message: 'Removed from favorites', favorites: user.favorites });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all favorites
+router.get('/me/favorites', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate('favorites', 'nickname name age gender university photos');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ favorites: user.favorites || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Check if user is favorited
+router.get('/is-favorite/:userId', verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const isFavorite = user.favorites?.includes(userId) || false;
+
+    res.json({ isFavorite });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GDPR: Export all user data
+router.get('/me/export-data', verifyToken, async (req, res) => {
+  try {
+    const { Message, Match } = await import('../database.js');
+    
+    // Get all user data
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Get all matches involving the user
+    const allMatches = await Match.find({});
+    const userMatches = allMatches.filter(m => String(m.user1) === req.userId || String(m.user2) === req.userId);
+
+    // Get all messages
+    const allMessages = await Message.find({});
+    const userMessages = allMessages.filter(m => String(m.senderId) === req.userId || String(m.receiverId) === req.userId);
+
+    // Get profile viewers
+    const profileViewers = user.profileViews || [];
+
+    // Compile export data
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        nickname: user.nickname,
+        age: user.age,
+        dob: user.dob,
+        gender: user.gender,
+        location: user.location,
+        university: user.university,
+        course: user.course,
+        year: user.year,
+        interests: user.interests,
+        bio: user.bio,
+        relationshipGoal: user.relationshipGoal,
+        verified: user.verified,
+        verificationMethod: user.verificationMethod,
+        profileCompletion: user.profileCompletion,
+        createdAt: user.createdAt,
+        lastActive: user.lastActive
+      },
+      photos: user.photos?.map(p => ({
+        url: p.url,
+        publicId: p.publicId,
+        uploadedAt: p.uploadedAt
+      })) || [],
+      preferences: user.notificationPreferences,
+      matches: userMatches.map(m => ({
+        id: m._id,
+        otherUserId: String(m.user1) === req.userId ? m.user2 : m.user1,
+        status: m.status,
+        matchedAt: m.matchedAt,
+        createdAt: m.createdAt
+      })),
+      messages: userMessages.map(m => ({
+        id: m._id,
+        matchId: m.matchId,
+        senderId: m.senderId,
+        receiverId: m.receiverId,
+        message: m.message,
+        read: m.read,
+        readAt: m.readAt,
+        createdAt: m.createdAt
+      })),
+      profileViews: profileViewers.map(v => ({
+        viewerId: v.viewerId,
+        viewedAt: v.viewedAt
+      })),
+      accountActivity: {
+        totalMatches: userMatches.length,
+        totalMessages: userMessages.length,
+        profileViewCount: profileViewers.length,
+        lastActive: user.lastActive,
+        memberSince: user.createdAt
+      }
+    };
+
+    // Send as JSON file download
+    res.setHeader('Content-Disposition', `attachment; filename="edulove-data-${Date.now()}.json"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(exportData, null, 2));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
