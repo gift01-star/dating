@@ -5,6 +5,24 @@ import { sendMessageNotification } from '../utils/emailService.js';
 
 const router = express.Router();
 
+// In-memory storage for typing indicators (matchId -> Set of userIds)
+const typingIndicators = new Map();
+
+// Cleanup typing indicators (auto-expire after 3 seconds)
+setInterval(() => {
+  const now = Date.now();
+  typingIndicators.forEach((entry, matchId) => {
+    entry.users.forEach((userData) => {
+      if (now - userData.timestamp > 3000) {
+        entry.users.delete(userData.userId);
+      }
+    });
+    if (entry.users.size === 0) {
+      typingIndicators.delete(matchId);
+    }
+  });
+}, 1000);
+
 // Normalize message rows (DB may return snake_case keys)
 function normalizeMsg(m) {
   if (!m) return m;
@@ -200,6 +218,7 @@ router.get('/search', verifyToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
 
 // Get total unread count
 router.get('/unread/count', verifyToken, async (req, res) => {
@@ -368,6 +387,79 @@ router.put('/:matchId/read', verifyToken, async (req, res) => {
     await Message.updateMany({ matchId: req.params.matchId, receiverId: req.userId, read: false }, { read: true, readAt: new Date() });
 
     res.json({ message: 'Messages marked as read' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Typing indicator - user started typing
+router.post('/:matchId/typing', verifyToken, async (req, res) => {
+  try {
+    const { matchId } = req.params;
+
+    // Verify user is part of this match
+    const match = await Match.findOne({ _id: matchId });
+    if (!match || (String(match.user1) !== req.userId && String(match.user2) !== req.userId)) {
+      return res.status(403).json({ error: 'You are not part of this match' });
+    }
+
+    // Update or create typing indicator
+    if (!typingIndicators.has(matchId)) {
+      typingIndicators.set(matchId, { users: new Set() });
+    }
+
+    const entry = typingIndicators.get(matchId);
+    
+    // Check if user already typing
+    let foundUser = false;
+    for (let userData of entry.users) {
+      if (String(userData.userId) === req.userId) {
+        userData.timestamp = Date.now(); // Update timestamp
+        foundUser = true;
+        break;
+      }
+    }
+
+    // Add new typing user
+    if (!foundUser) {
+      entry.users.add({
+        userId: req.userId,
+        timestamp: Date.now()
+      });
+    }
+
+    res.json({ message: 'Typing indicator updated' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get typing indicators for a conversation
+router.get('/:matchId/typing', verifyToken, async (req, res) => {
+  try {
+    const { matchId } = req.params;
+
+    // Verify user is part of this match
+    const match = await Match.findOne({ _id: matchId });
+    if (!match || (String(match.user1) !== req.userId && String(match.user2) !== req.userId)) {
+      return res.status(403).json({ error: 'You are not part of this match' });
+    }
+
+    // Get users currently typing (exclude self)
+    const typingUsers = [];
+    const entry = typingIndicators.get(matchId);
+    
+    if (entry) {
+      entry.users.forEach(userData => {
+        if (String(userData.userId) !== req.userId) {
+          typingUsers.push({
+            userId: userData.userId
+          });
+        }
+      });
+    }
+
+    res.json({ typingUsers });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
