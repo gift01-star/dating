@@ -44,6 +44,7 @@ async function ensureTables() {
       id TEXT PRIMARY KEY,
       name TEXT,
       email TEXT UNIQUE,
+      password_hash,
       passwordHash TEXT,
       nickname TEXT,
       photos JSONB,
