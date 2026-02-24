@@ -33,6 +33,8 @@ function DiscoverPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [imageError, setImageError] = useState(false);
+  const [sentLikesMap, setSentLikesMap] = useState({}); // userId -> matchId
+  const [toast, setToast] = useState(null);
   const [filters, setFilters] = useState({
     gender: '',
     university: '',
@@ -49,6 +51,16 @@ function DiscoverPage({ user }) {
   useEffect(() => {
     fetchProfiles();
   }, [filters]);
+
+  useEffect(() => {
+    // Refresh sent likes whenever profiles change or on mount
+    if (!loading) fetchSentLikes();
+  }, [loading, profiles]);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const handleForbiddenRedirect = (err) => {
     const msg = err.response?.data?.error || '';
@@ -88,6 +100,8 @@ function DiscoverPage({ user }) {
       setProfiles(response.data.users);
       setCurrentIndex(0);
       setError('');
+      // reset sent likes map until we fetch actual sent likes
+      setSentLikesMap({});
     } catch (err) {
       if (handleForbiddenRedirect(err)) return;
       setError(err.response?.data?.error || 'Failed to load profiles');
@@ -96,20 +110,66 @@ function DiscoverPage({ user }) {
     }
   };
 
+  const fetchSentLikes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const resp = await axios.get(`${API_URL}/matches/likes/sent`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const likes = resp.data.likes || [];
+      const map = {};
+      likes.forEach(l => {
+        const targetId = l.user?._id || (l.user && l.user._id) || (l.user && l.user.id) || l.user;
+        if (targetId) map[String(targetId)] = l._id; // map userId -> matchId
+      });
+      setSentLikesMap(map);
+    } catch (err) {
+      // ignore failures to fetch sent likes
+    }
+  };
+
   const handleLike = async () => {
     if (currentIndex >= profiles.length) return;
 
-    try {
-      const token = localStorage.getItem('token');
-      const profile = profiles[currentIndex];
+    const token = localStorage.getItem('token');
+    const profile = profiles[currentIndex];
+    const existingMatchId = sentLikesMap[String(profile._id)];
 
-      await axios.post(`${API_URL}/matches/like/${profile._id}`, {}, {
+    // If we've already sent a like to this user, cancel it (unlike)
+    if (existingMatchId) {
+      try {
+        await axios.post(`${API_URL}/matches/cancel-like/${existingMatchId}`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        // Remove from map and keep profile in view
+        const nextMap = { ...sentLikesMap };
+        delete nextMap[String(profile._id)];
+        setSentLikesMap(nextMap);
+        setError('');
+        showToast('Like cancelled');
+      } catch (err) {
+        if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error cancelling like');
+      }
+      return;
+    }
+
+    // Otherwise send a like
+    try {
+      const likeResp = await axios.post(`${API_URL}/matches/like/${profile._id}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      // If like was created, advance to next profile
       setCurrentIndex(prev => prev + 1);
-      setPhotoIndex(0); // Reset to first photo for new profile
+      setPhotoIndex(0);
       setImageError(false);
+
+      // If API returned match object, add to sentLikesMap (useful if not advanced)
+      const matchId = likeResp.data.match?._id || likeResp.data.match;
+      if (matchId) {
+        setSentLikesMap(prev => ({ ...prev, [String(profile._id)]: matchId }));
+      }
+      showToast('Profile liked');
     } catch (err) {
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error liking profile');
     }
@@ -141,6 +201,20 @@ function DiscoverPage({ user }) {
       const token = localStorage.getItem('token');
       const profile = profiles[currentIndex];
 
+      // If we have a sent-like match id for this profile, try to navigate directly
+      const knownMatchId = sentLikesMap[String(profile._id)];
+      if (knownMatchId) {
+        try {
+          const matchResp = await axios.get(`${API_URL}/matches/${knownMatchId}`, { headers: { Authorization: `Bearer ${token}` } });
+          if (matchResp?.data && matchResp.data._id) {
+            navigate(`/chat/${knownMatchId}`);
+            return;
+          }
+        } catch (e) {
+          // ignore and continue to attempt creating/finding match
+        }
+      }
+
       // Try to find existing match
       try {
         const matchResponse = await axios.get(`${API_URL}/matches`, {
@@ -149,10 +223,11 @@ function DiscoverPage({ user }) {
 
         // matchResponse.data is an array of matches
         const matches = Array.isArray(matchResponse.data) ? matchResponse.data : matchResponse.data.matches || [];
-        const existingMatch = matches.find(m => 
-          (String(m.user?._id) === profile._id) ||
-          (String(m._id) === profile._id) // fallback
-        );
+        const existingMatch = matches.find(m => (
+          (m.user && (String(m.user._id) === String(profile._id))) ||
+          (m.user1 && (String(m.user1) === String(profile._id))) ||
+          (m.user2 && (String(m.user2) === String(profile._id)))
+        ));
 
         if (existingMatch) {
           navigate(`/chat/${existingMatch._id}`);
@@ -437,7 +512,8 @@ function DiscoverPage({ user }) {
           </button>
           <button
             onClick={handleLike}
-            className="w-16 h-16 rounded-full bg-pink-500 text-white hover:bg-pink-600 transition flex items-center justify-center shadow-lg"
+            className={`w-16 h-16 rounded-full transition flex items-center justify-center shadow-lg ${sentLikesMap[String(currentProfile._id)] ? 'bg-gray-200 text-pink-500 hover:bg-gray-300' : 'bg-pink-500 text-white hover:bg-pink-600'}`}
+            title={sentLikesMap[String(currentProfile._id)] ? 'Unlike' : 'Like'}
           >
             <FaHeart size={24} />
           </button>
@@ -458,6 +534,12 @@ function DiscoverPage({ user }) {
       </div>
 
       <BottomNavBar user={user} />
+      {/* Toast */}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 bg-black text-white px-4 py-2 rounded shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

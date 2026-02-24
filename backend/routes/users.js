@@ -49,7 +49,9 @@ router.get('/profile/:id', verifyToken, async (req, res) => {
       }
     }
     
-    res.json(user.toJSON());
+    const resp = user.toJSON();
+    resp.age = calculateAge(user.dob) || user.age || null;
+    res.json(resp);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -96,6 +98,12 @@ router.put('/profile', verifyToken, async (req, res) => {
       relationshipGoal: user.relationshipGoal,
       updatedAt: user.updatedAt
     });
+
+    // Also update computed age based on DOB
+    const newAge = calculateAge(user.dob);
+    if (newAge !== null) {
+      await User.updateOne({ _id: req.userId }, { age: newAge });
+    }
 
     // Recalculate profileCompletion server-side for reliability
     const completionFields = [
@@ -247,7 +255,10 @@ router.get('/discover', verifyToken, async (req, res) => {
     const start = (pageNum - 1) * limit;
     const users = filteredUsers.slice(start, start + limit).map(u => {
       const userObj = u.toJSON();
-      
+
+      // Compute and include age from DOB if available
+      userObj.age = calculateAge(u.dob) || userObj.age || null;
+
       // Compute online status: active flag + recent activity within 5 minutes
       const FIVE_MIN = 5 * 60 * 1000;
       const lastActive = userObj.lastActive ? new Date(userObj.lastActive).getTime() : 0;
@@ -479,7 +490,7 @@ router.get('/me/profile-viewers', verifyToken, async (req, res) => {
           name: viewer?.name,
           nickname: viewer?.nickname,
           photo: viewer?.photos?.[0]?.url,
-          age: viewer?.age,
+          age: calculateAge(viewer?.dob) || viewer?.age || null,
           university: viewer?.university,
           viewedAt: view.viewedAt
         };
@@ -553,10 +564,17 @@ router.delete('/favorites/:userId', verifyToken, async (req, res) => {
 // Get all favorites
 router.get('/me/favorites', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).populate('favorites', 'nickname name age gender university photos');
+    const user = await User.findById(req.userId).populate('favorites', 'nickname name age gender university photos dob');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    res.json({ favorites: user.favorites || [] });
+    // Ensure favorites include computed age from DOB when possible
+    const favorites = (user.favorites || []).map(fav => {
+      const favObj = fav.toJSON ? fav.toJSON() : fav;
+      favObj.age = calculateAge(fav.dob) || favObj.age || null;
+      return favObj;
+    });
+
+    res.json({ favorites });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

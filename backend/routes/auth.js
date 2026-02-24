@@ -5,6 +5,19 @@ import { User } from '../database.js';
 
 const router = express.Router();
 
+// Helper: calculate age from DOB
+const calculateAge = (dob) => {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 // Register
 router.post('/register', async (req, res) => {
   try {
@@ -67,10 +80,13 @@ router.post('/register', async (req, res) => {
       expiresIn: process.env.JWT_EXPIRE || '7d'
     });
 
+    const userResp = user.toJSON();
+    userResp.age = calculateAge(user.dob) || userResp.age || null;
+
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: user.toJSON(),
+      user: userResp,
       infoMessage: 'Your profile is now visible to other users! Complete your profile to appear higher in recommendations.'
     });
   } catch (error) {
@@ -150,6 +166,7 @@ router.post('/login', async (req, res) => {
 
     const userWithOnlineStatus = {
       ...freshUser.toJSON(),
+      age: calculateAge(freshUser.dob) || freshUser.age || null,
       isOnline
     };
 
