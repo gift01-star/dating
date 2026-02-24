@@ -82,6 +82,12 @@ router.put('/profile', verifyToken, async (req, res) => {
 
     user.updatedAt = new Date();
 
+    // Validate age >= 18 when DOB is set/updated
+    const computedAge = calculateAge(user.dob);
+    if (computedAge !== null && computedAge < 18) {
+      return res.status(400).json({ error: 'You must be 18 or older to use this service.' });
+    }
+
     await User.updateOne({ _id: req.userId }, {
       nickname: user.nickname,
       name: user.name,
@@ -188,9 +194,13 @@ router.get('/discover', verifyToken, async (req, res) => {
       if (minHeight && u.height && u.height < parseInt(minHeight)) return false;
       if (maxHeight && u.height && u.height > parseInt(maxHeight)) return false;
       // Age range filter (calculate from DOB)
+      // Exclude users under 18
+      const actualAge = calculateAge(u.dob) ?? u.age ?? null;
+      if (actualAge !== null && actualAge < 18) return false;
+
       if (minAge || maxAge) {
-        const userAge = calculateAge(u.dob);
-        if (userAge === null) return false; // Exclude if no DOB set
+        const userAge = actualAge;
+        if (userAge === null) return false; // Exclude if no DOB/age set
         if (minAge && userAge < parseInt(minAge)) return false;
         if (maxAge && userAge > parseInt(maxAge)) return false;
       }

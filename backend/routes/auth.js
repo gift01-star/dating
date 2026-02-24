@@ -45,6 +45,15 @@ router.post('/register', async (req, res) => {
     }
 
     console.log('[Register] Creating user with email:', email);
+    // If DOB provided on registration, enforce 18+
+    if (req.body.dob) {
+      const dobDate = new Date(req.body.dob);
+      const calc = calculateAge(dobDate);
+      if (calc !== null && calc < 18) {
+        return res.status(400).json({ error: 'You must be 18 or older to register.' });
+      }
+    }
+
     const user = await User.create({
       name,
       email,
