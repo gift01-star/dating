@@ -47,6 +47,7 @@ function DiscoverPage({ user }) {
     interests: ''
   });
   const navigate = useNavigate();
+  const myProfileCompletion = user?.profileCompletion || 0;
 
   useEffect(() => {
     fetchProfiles();
@@ -327,6 +328,29 @@ function DiscoverPage({ user }) {
           </button>
         </div>
 
+        {/* Persistent banner: prompt to complete profile for new users */}
+        {myProfileCompletion < 50 && (
+          <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold">Complete your profile to unlock Likes & Messages</p>
+                <p className="text-sm">Your profile is {myProfileCompletion}% complete. You need at least 50% to like or message other users.</p>
+                <div className="w-full bg-yellow-100 rounded h-2 mt-2">
+                  <div className="bg-yellow-400 h-2 rounded" style={{ width: `${myProfileCompletion}%` }} />
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded"
+                >
+                  Complete Profile
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="bg-white rounded-lg p-3 md:p-4 mb-4 md:mb-6 shadow-sm">
           <h3 className="font-semibold text-gray-700 mb-3 text-sm md:text-base">Filters</h3>
@@ -510,17 +534,35 @@ function DiscoverPage({ user }) {
           >
             <FaTimes size={24} />
           </button>
+
           <button
-            onClick={handleLike}
-            className={`w-16 h-16 rounded-full transition flex items-center justify-center shadow-lg ${sentLikesMap[String(currentProfile._id)] ? 'bg-gray-200 text-pink-500 hover:bg-gray-300' : 'bg-pink-500 text-white hover:bg-pink-600'}`}
-            title={sentLikesMap[String(currentProfile._id)] ? 'Unlike' : 'Like'}
+            onClick={() => {
+              if (myProfileCompletion < 50) {
+                alert('Please complete at least 50% of your profile before liking profiles.');
+                navigate('/profile');
+                return;
+              }
+              handleLike();
+            }}
+            disabled={myProfileCompletion < 50}
+            className={`w-16 h-16 rounded-full transition flex items-center justify-center shadow-lg ${sentLikesMap[String(currentProfile._id)] ? 'bg-gray-200 text-pink-500 hover:bg-gray-300' : 'bg-pink-500 text-white hover:bg-pink-600'} ${myProfileCompletion < 50 ? 'opacity-60 cursor-not-allowed' : ''}`}
+            title={myProfileCompletion < 50 ? 'Complete profile to like' : (sentLikesMap[String(currentProfile._id)] ? 'Unlike' : 'Like')}
           >
             <FaHeart size={24} />
           </button>
+
           <button
-            onClick={handleNavigateToChat}
-            className="w-16 h-16 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition flex items-center justify-center shadow-lg"
-            title="Send Message"
+            onClick={() => {
+              if (myProfileCompletion < 50) {
+                alert('Please complete at least 50% of your profile before sending messages.');
+                navigate('/profile');
+                return;
+              }
+              handleNavigateToChat();
+            }}
+            disabled={myProfileCompletion < 50}
+            className={`w-16 h-16 rounded-full ${myProfileCompletion < 50 ? 'bg-gray-300 text-gray-500' : 'bg-blue-500 text-white hover:bg-blue-600'} transition flex items-center justify-center shadow-lg`}
+            title={myProfileCompletion < 50 ? 'Complete profile to message' : 'Send Message'}
           >
             <FaComments size={24} />
           </button>
