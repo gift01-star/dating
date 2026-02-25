@@ -153,49 +153,50 @@ router.post('/create-session', authenticate, async (req, res) => {
       }
     }
 
-    // ================= PAYCHANGU INTEGRATION =================
+    // ================= PAYCHANGU LIVE INTEGRATION =================
     const paySecret = process.env.PAYCHANGU_SECRET;
     const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
-    console.info('[create-session] Paychangu config:', {
-      hasSecret: !!paySecret,
-      apiBase: payApiBase
-    });
-
-    if (paySecret && paySecret !== 'SEC-TEST-n6Lrit76RMMNaXOHeum60HSKTQrKAUWe') {
+    if (!paySecret || !paySecret.startsWith('SEC-LIVE-')) {
+      console.error('Invalid or missing LIVE PayChangu secret key');
+    } else {
       try {
-        // Convert cents to main currency (e.g. 1999 -> 19.99)
-        const amountInMainUnit = (plan.amount / 100).toFixed(2);
-
+        // For LIVE: send full amount (not cents)
         const payloadForPaychangu = {
-          amount: amountInMainUnit,
-          currency: 'MWK', // Change if needed
+          amount: plan.amount, // Example: 2000 = 2000 MWK
+          currency: 'MWK',
           email: req.user.email,
           reference: payment._id.toString(),
           callback_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
           return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
         };
 
-        console.info('[create-session] Calling Paychangu API...');
+        console.log('Sending LIVE PayChangu payload:', payloadForPaychangu);
 
-        const response = await fetch(`${payApiBase}/api/v1/transaction/initialize`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${paySecret}`
-          },
-          body: JSON.stringify(payloadForPaychangu)
-        });
+        const response = await fetch(
+          `${payApiBase}/api/v1/transaction/initialize`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${paySecret}`
+            },
+            body: JSON.stringify(payloadForPaychangu)
+          }
+        );
 
-        const data = await response.json().catch(() => ({}));
+        const responseText = await response.text();
+        console.log('PayChangu LIVE status:', response.status);
+        console.log('PayChangu LIVE response:', responseText);
 
-        console.info('[create-session] Paychangu response:', {
-          status: response.status,
-          data
-        });
+        let data = {};
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('PayChangu returned non-JSON response');
+        }
 
-        // Paychangu usually returns redirect_url or checkout_url
         const checkoutUrl =
           data?.redirect_url ||
           data?.checkout_url ||
@@ -210,7 +211,8 @@ router.post('/create-session', authenticate, async (req, res) => {
               externalId: data?.id || data?.reference || null,
               externalData: data,
               externalCheckoutUrl: checkoutUrl,
-              provider: 'paychangu'
+              provider: 'paychangu',
+              updatedAt: new Date()
             }
           );
 
@@ -220,9 +222,9 @@ router.post('/create-session', authenticate, async (req, res) => {
           });
         }
 
-        console.warn('[create-session] Paychangu failed:', data);
-      } catch (err) {
-        console.error('Paychangu error:', err.message || err);
+        console.error('PayChangu LIVE failed:', data);
+      } catch (error) {
+        console.error('PayChangu LIVE error:', error.message || error);
       }
     }
     // ================= END PAYCHANGU =================
