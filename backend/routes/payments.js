@@ -182,34 +182,46 @@ router.post('/create-session', authenticate, async (req, res) => {
       console.error('Missing PayChangu secret key - will use fallback');
     } else {
       try {
-        // Build query string for GET request
-        const params = new URLSearchParams({
-          amount: plan.amount.toString(),          // Example: 1999
-          currency: 'MWK',                         // Must match your account currency
+        // Build payload for POST request
+        const payload = {
+          amount: plan.amount,
+          currency: 'MWK',
           email: req.user.email,
           reference: payment._id.toString(),
           callback_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
           return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
+        };
+
+        const response = await fetch(`${payApiBase}/api/v1/transaction/initialize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${paySecret}`
+          },
+          body: JSON.stringify(payload)
         });
 
-        const paychanguUrl = `${payApiBase}/api/v1/transaction/initialize?${params.toString()}`;
+        const data = await response.json();
+        const checkoutUrl = data?.data?.checkout_url || data?.data?.redirect_url || data?.checkout_url || data?.redirect_url || null;
 
-        console.log('[create-session] PayChangu LIVE checkout URL:', paychanguUrl);
+        if (response.ok && checkoutUrl) {
+          await Payment.updateOne(
+            { _id: payment._id },
+            {
+              externalCheckoutUrl: checkoutUrl,
+              provider: 'paychangu',
+              updatedAt: new Date(),
+              externalId: data?.data?.reference || null,
+              externalData: data
+            }
+          );
+          return res.json({
+            checkoutUrl,
+            paymentId: payment._id
+          });
+        }
 
-        // Optionally, save external info in Payment record
-        await Payment.updateOne(
-          { _id: payment._id },
-          {
-            externalCheckoutUrl: paychanguUrl,
-            provider: 'paychangu',
-            updatedAt: new Date()
-          }
-        );
-
-        return res.json({
-          checkoutUrl: paychanguUrl,
-          paymentId: payment._id
-        });
+        console.error('[create-session] PayChangu API failed:', data);
       } catch (error) {
         console.error('[create-session] PayChangu LIVE error:', error.message || error);
       }
