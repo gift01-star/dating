@@ -173,7 +173,7 @@ router.post('/create-session', authenticate, async (req, res) => {
 
     // ================= PAYCHANGU LIVE INTEGRATION =================
     const paySecret = process.env.PAYCHANGU_SECRET;
-    const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://payments.paychangu.com';
+    const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
     console.log('[create-session] PAYCHANGU_SECRET existence check:', !!paySecret);
     console.log('[create-session] PAYCHANGU_SECRET first 10 chars:', paySecret ? paySecret.substring(0, 10) : 'NOT SET');
