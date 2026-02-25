@@ -124,6 +124,7 @@ async function ensureTables() {
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS "externalId" TEXT;
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS "externalData" JSONB;
     ALTER TABLE payments ADD COLUMN IF NOT EXISTS "provider" TEXT;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP;
 
     CREATE TABLE IF NOT EXISTS reports (
       id TEXT PRIMARY KEY,
