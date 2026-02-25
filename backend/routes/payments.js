@@ -157,8 +157,11 @@ router.post('/create-session', authenticate, async (req, res) => {
     const paySecret = process.env.PAYCHANGU_SECRET;
     const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
-    if (!paySecret || !paySecret.startsWith('SEC-LIVE-')) {
-      console.error('Invalid or missing LIVE PayChangu secret key');
+    console.log('[create-session] PAYCHANGU_SECRET existence check:', !!paySecret);
+    console.log('[create-session] PAYCHANGU_SECRET first 10 chars:', paySecret ? paySecret.substring(0, 10) : 'NOT SET');
+
+    if (!paySecret) {
+      console.error('Missing PayChangu secret key - will use fallback');
     } else {
       try {
         // For LIVE: send full amount (not cents)
@@ -171,7 +174,7 @@ router.post('/create-session', authenticate, async (req, res) => {
           return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
         };
 
-        console.log('Sending LIVE PayChangu payload:', payloadForPaychangu);
+        console.log('[create-session] Sending PayChangu payload:', payloadForPaychangu);
 
         const response = await fetch(
           `${payApiBase}/api/v1/transaction/initialize`,
@@ -187,14 +190,14 @@ router.post('/create-session', authenticate, async (req, res) => {
         );
 
         const responseText = await response.text();
-        console.log('PayChangu LIVE status:', response.status);
-        console.log('PayChangu LIVE response:', responseText);
+        console.log('[create-session] PayChangu HTTP status:', response.status);
+        console.log('[create-session] PayChangu response:', responseText.substring(0, 500));
 
         let data = {};
         try {
           data = JSON.parse(responseText);
         } catch (e) {
-          console.error('PayChangu returned non-JSON response');
+          console.error('[create-session] PayChangu returned non-JSON response:', e.message);
         }
 
         const checkoutUrl =
@@ -205,6 +208,7 @@ router.post('/create-session', authenticate, async (req, res) => {
           null;
 
         if (response.ok && checkoutUrl) {
+          console.log('[create-session] PayChangu checkout URL received:', checkoutUrl);
           await Payment.updateOne(
             { _id: payment._id },
             {
@@ -222,9 +226,9 @@ router.post('/create-session', authenticate, async (req, res) => {
           });
         }
 
-        console.error('PayChangu LIVE failed:', data);
+        console.error('[create-session] PayChangu API failed:', { status: response.status, data });
       } catch (error) {
-        console.error('PayChangu LIVE error:', error.message || error);
+        console.error('[create-session] PayChangu error:', error.message || error);
       }
     }
     // ================= END PAYCHANGU =================
