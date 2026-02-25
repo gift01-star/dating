@@ -46,45 +46,46 @@ export default function PaymentsPage({ user }) {
 
   const plans = [
     {
-      id: 'basic',
-      name: 'Basic',
-      price: '$19.99',
-      priceInCents: 1999,
-      description: 'Perfect for casual dating',
+      id: 'daily',
+      name: 'Daily',
+      price: 'K950',
+      priceInCents: 95000,
+      description: 'Access premium features for 1 day',
       features: [
         '✓ Unlimited likes',
         '✓ See who likes you',
         '✓ Unlimited messages',
-        '✓ Online status indicator'
+        '✓ Online status indicator',
+        '✓ 1-day access'
       ]
     },
     {
-      id: 'premium',
-      name: 'Premium',
-      price: '$49.99',
-      priceInCents: 4999,
-      description: 'Our most popular plan',
+      id: 'weekly',
+      name: 'Weekly',
+      price: 'K2100',
+      priceInCents: 210000,
+      description: 'Best value for 7 days',
       features: [
-        '✓ All Basic features',
+        '✓ All Daily features',
         '✓ Advanced filters',
         '✓ See message read status',
         '✓ Boost your profile for 1 day',
-        '✓ 30-day subscription'
+        '✓ 7-day access'
       ],
       recommended: true
     },
     {
-      id: 'platinum',
-      name: 'Platinum',
-      price: '$99.99',
-      priceInCents: 9999,
-      description: 'For serious daters',
+      id: 'monthly',
+      name: 'Monthly',
+      price: 'K5100',
+      priceInCents: 510000,
+      description: 'Full access for 30 days',
       features: [
-        '✓ All Premium features',
+        '✓ All Weekly features',
         '✓ See who visited your profile',
         '✓ Unlimited boosts',
         '✓ Priority support',
-        '✓ 30-day subscription'
+        '✓ 30-day access'
       ]
     }
   ];

@@ -10,9 +10,27 @@ const PAYMENTS_ENABLED = (process.env.PAYMENTS_ENABLED || 'true') === 'true'; //
 
 // Simple plan definitions (could be stored in DB later)
 const PLANS = {
-  basic: { id: 'basic', name: 'Basic', amount: 1999, currency: 'USD', description: 'Basic membership' },
-  premium: { id: 'premium', name: 'Premium', amount: 4999, currency: 'USD', description: 'Premium membership (recommended)' },
-  platinum: { id: 'platinum', name: 'Platinum', amount: 9999, currency: 'USD', description: 'All features, top priority support' }
+  daily: {
+    id: 'daily',
+    name: 'Daily',
+    amount: 950,
+    currency: 'MWK',
+    description: 'Access premium features for 1 day'
+  },
+  weekly: {
+    id: 'weekly',
+    name: 'Weekly',
+    amount: 2100,
+    currency: 'MWK',
+    description: 'Best value for 7 days'
+  },
+  monthly: {
+    id: 'monthly',
+    name: 'Monthly',
+    amount: 5100,
+    currency: 'MWK',
+    description: 'Full access for 30 days'
+  }
 };
 
 // Helper: authenticate user via Bearer token
@@ -155,7 +173,7 @@ router.post('/create-session', authenticate, async (req, res) => {
 
     // ================= PAYCHANGU LIVE INTEGRATION =================
     const paySecret = process.env.PAYCHANGU_SECRET;
-    const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
+    const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://payments.paychangu.com';
 
     console.log('[create-session] PAYCHANGU_SECRET existence check:', !!paySecret);
     console.log('[create-session] PAYCHANGU_SECRET first 10 chars:', paySecret ? paySecret.substring(0, 10) : 'NOT SET');
@@ -164,70 +182,36 @@ router.post('/create-session', authenticate, async (req, res) => {
       console.error('Missing PayChangu secret key - will use fallback');
     } else {
       try {
-        // For LIVE: send full amount (not cents)
-        const payloadForPaychangu = {
-          amount: plan.amount, // Example: 2000 = 2000 MWK
-          currency: 'MWK',
+        // Build query string for GET request
+        const params = new URLSearchParams({
+          amount: plan.amount.toString(),          // Example: 1999
+          currency: 'MWK',                         // Must match your account currency
           email: req.user.email,
           reference: payment._id.toString(),
           callback_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
           return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
-        };
+        });
 
-        console.log('[create-session] Sending PayChangu payload:', payloadForPaychangu);
+        const paychanguUrl = `${payApiBase}/api/v1/transaction/initialize?${params.toString()}`;
 
-        const response = await fetch(
-          `${payApiBase}/api/v1/checkout`,
+        console.log('[create-session] PayChangu LIVE checkout URL:', paychanguUrl);
+
+        // Optionally, save external info in Payment record
+        await Payment.updateOne(
+          { _id: payment._id },
           {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${paySecret}`
-            },
-            body: JSON.stringify(payloadForPaychangu)
+            externalCheckoutUrl: paychanguUrl,
+            provider: 'paychangu',
+            updatedAt: new Date()
           }
         );
 
-        const responseText = await response.text();
-        console.log('[create-session] PayChangu HTTP status:', response.status);
-        console.log('[create-session] PayChangu response:', responseText.substring(0, 500));
-
-        let data = {};
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error('[create-session] PayChangu returned non-JSON response:', e.message);
-        }
-
-        const checkoutUrl =
-          data?.redirect_url ||
-          data?.checkout_url ||
-          data?.link ||
-          data?.data?.redirect_url ||
-          null;
-
-        if (response.ok && checkoutUrl) {
-          console.log('[create-session] PayChangu checkout URL received:', checkoutUrl);
-          await Payment.updateOne(
-            { _id: payment._id },
-            {
-              externalId: data?.id || data?.reference || null,
-              externalData: data,
-              externalCheckoutUrl: checkoutUrl,
-              provider: 'paychangu',
-              updatedAt: new Date()
-            }
-          );
-
-          return res.json({
-            checkoutUrl,
-            paymentId: payment._id
-          });
-        }
-
-        console.error('[create-session] PayChangu API failed:', { status: response.status, data });
+        return res.json({
+          checkoutUrl: paychanguUrl,
+          paymentId: payment._id
+        });
       } catch (error) {
-        console.error('[create-session] PayChangu error:', error.message || error);
+        console.error('[create-session] PayChangu LIVE error:', error.message || error);
       }
     }
     // ================= END PAYCHANGU =================
