@@ -177,12 +177,11 @@ router.post('/create-session', authenticate, async (req, res) => {
         console.log('[create-session] Sending PayChangu payload:', payloadForPaychangu);
 
         const response = await fetch(
-          `${payApiBase}/api/v1/transaction/initialize`,
+          `${payApiBase}/api/v1/checkout`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Accept': 'application/json',
               'Authorization': `Bearer ${paySecret}`
             },
             body: JSON.stringify(payloadForPaychangu)
