@@ -153,24 +153,30 @@ router.post('/create-session', authenticate, async (req, res) => {
       }
     }
 
-    // Attempt to create a real Paychangu checkout session when keys are configured (fallback)
+    // ================= PAYCHANGU INTEGRATION =================
     const paySecret = process.env.PAYCHANGU_SECRET;
     const payApiBase = process.env.PAYCHANGU_API_BASE || 'https://api.paychangu.com';
 
-    console.info('[create-session] Paychangu config:', { hasSecret: !!paySecret, apiBase: payApiBase });
+    console.info('[create-session] Paychangu config:', {
+      hasSecret: !!paySecret,
+      apiBase: payApiBase
+    });
 
     if (paySecret && paySecret !== 'SEC-TEST-n6Lrit76RMMNaXOHeum60HSKTQrKAUWe') {
       try {
+        // Convert cents to main currency (e.g. 1999 -> 19.99)
+        const amountInMainUnit = (plan.amount / 100).toFixed(2);
+
         const payloadForPaychangu = {
-          amount: plan.amount,
-          currency: plan.currency || 'USD',
+          amount: amountInMainUnit,
+          currency: 'MWK', // Change if needed
           email: req.user.email,
-          reference: payment._id,
-          callback_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/webhook`,
-          return_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL}/api/payments/return?paymentId=${payment._id}`
+          reference: payment._id.toString(),
+          callback_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
+          return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
         };
 
-        console.info('[create-session] Calling Paychangu API', { endpoint: `${payApiBase}/api/v1/transaction/initialize`, paySecret: paySecret ? '***' : 'MISSING', method: 'POST' });
+        console.info('[create-session] Calling Paychangu API...');
 
         const response = await fetch(`${payApiBase}/api/v1/transaction/initialize`, {
           method: 'POST',
@@ -182,26 +188,44 @@ router.post('/create-session', authenticate, async (req, res) => {
           body: JSON.stringify(payloadForPaychangu)
         });
 
-        const responseText = await response.text();
-        console.info('[create-session] Paychangu response:', { status: response.status, statusText: response.statusText, body: responseText?.substring(0, 500) });
+        const data = await response.json().catch(() => ({}));
 
-        let data = {};
-        try { data = JSON.parse(responseText); } catch (e) { data = { error: responseText }; }
+        console.info('[create-session] Paychangu response:', {
+          status: response.status,
+          data
+        });
 
-        // Determine checkout URL from Paychangu response
-        const checkoutUrlFromProvider = data?.redirect_url || data?.link || data?.checkout_url || data?.url;
+        // Paychangu usually returns redirect_url or checkout_url
+        const checkoutUrl =
+          data?.redirect_url ||
+          data?.checkout_url ||
+          data?.link ||
+          data?.data?.redirect_url ||
+          null;
 
-        if (response.ok && checkoutUrlFromProvider) {
-          console.info('[create-session] Paychangu checkout URL received:', { checkoutUrl: checkoutUrlFromProvider });
-          await Payment.updateOne({ _id: payment._id }, { externalId: data.id || data.reference || null, externalData: data, externalCheckoutUrl: checkoutUrlFromProvider, provider: 'paychangu' });
-          return res.json({ checkoutUrl: checkoutUrlFromProvider, paymentId: payment._id });
-        } else {
-          console.warn('[create-session] Paychangu API call failed:', { status: response.status, data });
+        if (response.ok && checkoutUrl) {
+          await Payment.updateOne(
+            { _id: payment._id },
+            {
+              externalId: data?.id || data?.reference || null,
+              externalData: data,
+              externalCheckoutUrl: checkoutUrl,
+              provider: 'paychangu'
+            }
+          );
+
+          return res.json({
+            checkoutUrl,
+            paymentId: payment._id
+          });
         }
+
+        console.warn('[create-session] Paychangu failed:', data);
       } catch (err) {
-        console.error('Paychangu create-session error', err.message || err);
+        console.error('Paychangu error:', err.message || err);
       }
     }
+    // ================= END PAYCHANGU =================
 
     // Fallback: return a placeholder local success URL for test flows
     if (!payment._id) {

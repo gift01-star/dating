@@ -34,8 +34,25 @@
    - Environment variables
    - **Best for:** Reference documentation
 
+### 💳 Payments Documentation
+4. **[PAYCHANGU_SETUP_GUIDE.md](PAYCHANGU_SETUP_GUIDE.md)** 
+   - Complete Paychangu integration guide
+   - Payment flow explanation
+   - Environment variable setup
+   - Testing instructions (cURL & UI)
+   - Troubleshooting & debugging tips
+   - **Best for:** Setting up live payments
+
+5. **[PAYCHANGU_CONFIG_CHECKLIST.md](PAYCHANGU_CONFIG_CHECKLIST.md)**
+   - Step-by-step configuration checklist
+   - Render environment setup
+   - Webhook configuration
+   - End-to-end testing
+   - Go-live verification
+   - **Best for:** Quick reference while configuring
+
 ### 🎉 Delivery Report
-4. **[DELIVERY_REPORT.md](DELIVERY_REPORT.md)**
+6. **[DELIVERY_REPORT.md](DELIVERY_REPORT.md)**
    - Final delivery summary
    - Feature statistics
    - Code metrics
@@ -44,7 +61,7 @@
    - **Best for:** Project managers & stakeholders
 
 ### ✅ Validation Script
-5. **[validate-features.sh](validate-features.sh)**
+6. **[validate-features.sh](validate-features.sh)**
    - Automated syntax checking
    - Dependency verification
    - Configuration validation
@@ -60,26 +77,31 @@
 - Read: DELIVERY_REPORT.md
 - Check: Feature Statistics section
 - Verify: Deployment Readiness checklist
+- Payments: PAYCHANGU_SETUP_GUIDE.md (Status section)
 
 **Frontend Developer:**
 - Start: QUICK_REFERENCE.md
 - Deep dive: IMPLEMENTATION_SUMMARY.md (Integration Points)
 - Reference: FEATURES_ADDED.md (Frontend Changes)
+- Payments: PAYCHANGU_CONFIG_CHECKLIST.md (Step 4 - UI testing)
 
 **Backend Developer:**
 - Start: QUICK_REFERENCE.md
 - Deep dive: IMPLEMENTATION_SUMMARY.md (Technical Details)
 - Reference: FEATURES_ADDED.md (Endpoints & APIs)
+- Payments: Backend already configured - start with PAYCHANGU_SETUP_GUIDE.md
 
 **DevOps Engineer:**
 - Read: DELIVERY_REPORT.md (Deployment section)
 - Setup: QUICK_REFERENCE.md (Environment Variables)
 - Test: validate-features.sh
+- Payments: PAYCHANGU_CONFIG_CHECKLIST.md (Step 3 - Render setup)
 
 **QA Engineer:**
 - Start: QUICK_REFERENCE.md (Testing Checklist)
 - Deep dive: IMPLEMENTATION_SUMMARY.md (Testing Scenarios)
 - Reference: FEATURES_ADDED.md (All features)
+- Payments: PAYCHANGU_CONFIG_CHECKLIST.md (Step 4 - End-to-end testing)
 
 ---
 
@@ -136,7 +158,14 @@
 - Status: Design phase (architecture ready)
 - Details: IMPLEMENTATION_SUMMARY.md → Feature 8
 
----
+### Paychangu Payments
+- Setup Guide: PAYCHANGU_SETUP_GUIDE.md (start here)
+- Configuration: PAYCHANGU_CONFIG_CHECKLIST.md (step-by-step)
+- Testing: PAYCHANGU_CONFIG_CHECKLIST.md → Step 4
+- Troubleshooting: PAYCHANGU_SETUP_GUIDE.md → Troubleshooting
+- API Endpoints: PAYCHANGU_SETUP_GUIDE.md → Quick Reference
+- Backend Code: [backend/routes/payments.js](backend/routes/payments.js)
+- Frontend Code: [frontend/src/pages/PaymentsPage.js](frontend/src/pages/PaymentsPage.js)
 
 ## 📊 Code Organization
 
@@ -273,7 +302,17 @@
 ### "What's the performance impact?"
 → DELIVERY_REPORT.md → Performance Impact section
 
----
+### "How do I set up Paychangu?"
+→ PAYCHANGU_SETUP_GUIDE.md → Step 1
+
+### "How do I configure Paychangu in Render?"
+→ PAYCHANGU_CONFIG_CHECKLIST.md → Step 3
+
+### "How do I test a payment?"
+→ PAYCHANGU_CONFIG_CHECKLIST.md → Step 4
+
+### "Payment integration not working - help!"
+→ PAYCHANGU_SETUP_GUIDE.md → Troubleshooting section
 
 ## 🎓 Learning Path
 
