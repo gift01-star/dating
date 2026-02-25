@@ -119,6 +119,11 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT now()
     );
 
+    -- Add PayChangu/Flutterwave columns if missing
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS "externalCheckoutUrl" TEXT;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS "externalId" TEXT;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS "externalData" JSONB;
+
     CREATE TABLE IF NOT EXISTS reports (
       id TEXT PRIMARY KEY,
       reporter_id TEXT,
