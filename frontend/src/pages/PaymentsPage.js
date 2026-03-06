@@ -236,7 +236,9 @@ export default function PaymentsPage({ user }) {
 
                 <div className="mb-6">
                   <span className="text-4xl font-bold text-pink-600">{plan.price}</span>
-                  <span className="text-gray-600 text-sm">/month</span>
+                  <span className="text-gray-600 text-sm">
+                    {plan.id === 'daily' ? '/day' : plan.id === 'weekly' ? '/week' : '/month'}
+                  </span>
                 </div>
 
                 <ul className="space-y-3 mb-6">
