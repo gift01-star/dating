@@ -282,10 +282,17 @@ function ChatPage({ user }) {
         return;
       }
 
-      // Payments temporarily disabled — show friendly message instead of redirecting
+      // Payment required after free message limit
       if (err.response && err.response.status === 402) {
-        alert('Payments are currently disabled. Messaging is free.');
-        fetchMessages();
+        const respData = err.response.data || {};
+        if (respData.paymentRequired) {
+          alert('🚧 You have reached the free message limit. Please upgrade to continue chatting.');
+          navigate('/payments');
+          return;
+        }
+        // fallback generic 402
+        alert('⚠️ Payment required to send more messages.');
+        navigate('/payments');
         return;
       }
 

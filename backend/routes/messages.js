@@ -181,6 +181,25 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
     const receiverUser = await User.findById(receiverId);
     const senderUser = await User.findById(req.userId);
 
+    // Enforce free-message limit: after 3 sent messages, require payment
+    try {
+      if (senderUser && !(senderUser.messagesUnlocked || senderUser.subscriptionActive)) {
+        // count how many messages this user has sent so far (across all matches)
+        const sentMsgs = await Message.find({ senderId: req.userId });
+        if (Array.isArray(sentMsgs) && sentMsgs.length >= 3) {
+          console.log('[Messages] Free message limit reached for user', req.userId);
+          return res.status(402).json({
+            error: 'Free message limit reached. Please upgrade to continue chatting.',
+            paymentRequired: true,
+            limit: 3
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[Messages] Error checking free-message limit', err);
+      // allow messaging if the limit check fails unexpectedly
+    }
+
     if (!receiverUser) {
       console.log('[Messages] Receiver user not found:', receiverId);
       return res.status(404).json({ error: 'Receiver user not found' });
@@ -201,8 +220,9 @@ router.post('/:matchId', verifyToken, requireMinimumProfile, async (req, res) =>
       return res.status(403).json({ error: 'You cannot message a user you have blocked. Unblock them first to continue.' });
     }
 
-    // Messaging is unlimited — no payment required anymore
-    // (Legacy fields like subscription/messagesUnlocked/unlockedMatches are ignored)
+    // Enforce a free limit of 3 messages per user; after that they must pay.
+    // (Legacy fields like subscription/messagesUnlocked/unlockedMatches are still used to
+    // track whether a user has unlocked unlimited messaging via payment.)
     // We still record the message below as usual.
 
     const newMessageRaw = await Message.create({
