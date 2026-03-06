@@ -1,20 +1,36 @@
 import nodemailer from 'nodemailer';
+import sgTransport from 'nodemailer-sendgrid-transport';
 
 // Configure email transporter
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
+let transporter;
 
-// Fallback to SendGrid if Gmail not configured
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-  if (process.env.SENDGRID_API_KEY) {
-    const sgTransport = require('nodemailer-sendgrid-transport');
-    console.info('Using SendGrid for emails');
-  }
+if (process.env.SENDGRID_API_KEY) {
+  // Use SendGrid if API key is available
+  transporter = nodemailer.createTransport(sgTransport({
+    auth: {
+      api_key: process.env.SENDGRID_API_KEY
+    }
+  }));
+  console.info('Using SendGrid for emails');
+} else if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+  // Fallback to Gmail SMTP
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
+  console.info('Using Gmail SMTP for emails');
+} else {
+  console.warn('No email service configured. Emails will not be sent.');
+  // Create a dummy transporter that doesn't send emails
+  transporter = {
+    sendMail: async () => {
+      console.warn('Email service not configured - skipping email send');
+      return true;
+    }
+  };
 }
 
 export const sendEmail = async (to, subject, html) => {
