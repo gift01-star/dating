@@ -79,8 +79,8 @@ async function ensureTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "profileCompletion" INTEGER DEFAULT 0;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "bodyType" TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "relationshipGoal" TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetToken" TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS "resetExpires" TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
     ALTER TABLE users ALTER COLUMN unlocked_matches SET DEFAULT '[]'::jsonb;
 
