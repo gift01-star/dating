@@ -33,6 +33,32 @@ body {
   @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-pink-500;
 }
 
+/* Mobile-specific date input improvements */
+.input-field[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: white;
+  cursor: pointer;
+}
+
+.input-field[type="date"]::-webkit-calendar-picker-indicator {
+  color: #ec4899;
+  cursor: pointer;
+}
+
+.input-field[type="date"]::-webkit-inner-spin-button,
+.input-field[type="date"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Mobile date input fallback */
+@media (max-width: 768px) {
+  .input-field[type="date"] {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
 .gradient-header {
   background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
 }

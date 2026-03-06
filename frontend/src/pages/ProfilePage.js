@@ -34,6 +34,13 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
 
+  // Check if date input is supported
+  const isDateInputSupported = () => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'date');
+    return input.type === 'date';
+  };
+
   // Calculate profile completion percentage
   useEffect(() => {
     calculateProfileCompletion();
@@ -451,12 +458,23 @@ function ProfilePage({ user, setUser, handleLogout: handleLogoutProp }) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                   <input
-                    type="date"
+                    type={isDateInputSupported() ? "date" : "text"}
                     name="dob"
                     value={formData.dob}
                     onChange={handleChange}
                     className="input-field"
+                    placeholder={isDateInputSupported() ? "Select your date of birth" : "YYYY-MM-DD"}
+                    max={new Date().toISOString().split('T')[0]}
+                    pattern={isDateInputSupported() ? undefined : "\\d{4}-\\d{2}-\\d{2}"}
+                    title={isDateInputSupported() ? "Select your birth date" : "Enter date in YYYY-MM-DD format"}
+                    required
+                    autoComplete="bday"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isDateInputSupported()
+                      ? "Tap to select your birth date from the calendar"
+                      : "Enter your birth date in YYYY-MM-DD format (e.g., 1995-06-15)"}
+                  </p>
                 </div>
 
                 <div>
