@@ -182,17 +182,17 @@ router.post('/create-session', authenticate, async (req, res) => {
       console.error('Missing PayChangu secret key - will use fallback');
     } else {
       try {
-        // Build payload for POST request
+        // Build payload for POST request to /payment endpoint
         const payload = {
           amount: plan.amount,
           currency: 'MWK',
           email: req.user.email,
-          reference: payment._id.toString(),
+          tx_ref: payment._id.toString(),
           callback_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
           return_url: `${process.env.FRONTEND_URL}/payments?sessionId=${payment._id}`
         };
 
-        const response = await fetch(`${payApiBase}/api/v1/transaction/initialize`, {
+        const response = await fetch(`${payApiBase}/payment`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -202,7 +202,7 @@ router.post('/create-session', authenticate, async (req, res) => {
         });
 
         const data = await response.json();
-        const checkoutUrl = data?.data?.checkout_url || data?.data?.redirect_url || data?.checkout_url || data?.redirect_url || null;
+        const checkoutUrl = data?.data?.checkout_url || data?.checkout_url || null;
 
         if (response.ok && checkoutUrl) {
           await Payment.updateOne(
