@@ -290,12 +290,15 @@ router.post('/request-reset', async (req, res) => {
       emailSent = false;
     }
 
+    // In all cases we don't want to expose the raw reset link to the client.
+    // If the email succeeds we already replied with a generic message. When
+    // the email fails we still return the same generic message but log the link
+    // on the server for debugging.
     if (emailSent) {
-      // Don't return the link when emailed
       res.json({ message: 'If an account exists, a reset link has been sent' });
     } else {
-      // Dev fallback: return reset link in response when SMTP not configured
-      res.json({ message: 'Reset link created', resetLink });
+      console.warn('[Reset] Email not sent, reset link is:', resetLink);
+      res.json({ message: 'If an account exists, a reset link has been sent' });
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
