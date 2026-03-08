@@ -1,5 +1,11 @@
 import nodemailer from 'nodemailer';
+const cors = require('cors');
 
+app.use(cors({
+  origin: 'https://edu-love.onrender.com',
+  method: ['GET','POST'],
+  credentials: true
+}));
 // Configure email transporter - Gmail only with App Password
 let transporter;
 

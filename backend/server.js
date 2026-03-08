@@ -29,6 +29,14 @@ import notificationsRoutes from './routes/notifications.js';
 // Import database
 import { User } from './database.js';
 
+const cors = require('cors');
+
+app.use(cors({
+  origin: 'https://edu-love.onrender.com',
+  method: ['GET','POST','PUT','DELETE'],
+  credentials: true
+}));
+
 dotenv.config();
 
 // Configure Cloudinary
