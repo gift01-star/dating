@@ -211,82 +211,60 @@ router.post('/request-reset', async (req, res) => {
 
     const resetLink = `${process.env.FRONTEND_URL || 'https://edu-love.onrender.onrender.com'}/reset/${token}`;
 
-    // Try to email the reset link if SMTP is configured
+    // Send reset email via Gmail SMTP with App Password
     let emailSent = false;
     try {
-      // Prefer SendGrid API if configured
-      if (process.env.SENDGRID_API_KEY) {
-        try {
-          // Use SendGrid HTTP API directly to avoid requiring the SDK
-          const fromAddress = process.env.FROM_EMAIL || 'no-reply@' + (process.env.FRONTEND_URL?.replace(/^https?:\/\//, '') || 'example.com');
-          const payload = {
-            personalizations: [
-              {
-                to: [{ email: user.email }],
-                subject: 'Password reset request'
-              }
-            ],
-            from: { email: fromAddress },
-            content: [
-              { type: 'text/plain', value: `You requested a password reset. Use this link to reset your password (valid 1 hour): ${resetLink}` },
-              { type: 'text/html', value: `<p>You requested a password reset. Click the link below to reset your password (valid 1 hour):</p><p><a href="${resetLink}">${resetLink}</a></p>` }
-            ]
-          };
-
-          const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-
-          if (res.ok) {
-            emailSent = true;
-          } else {
-            const bodyText = await res.text().catch(() => '');
-            console.error('SendGrid API error:', res.status, bodyText);
-            emailSent = false;
-          }
-        } catch (sgErr) {
-          console.error('SendGrid HTTP send error:', sgErr && sgErr.message ? sgErr.message : sgErr);
-          emailSent = false;
-        }
-      } else if (process.env.SMTP_HOST) {
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
         const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || '587', 10),
-          secure: (process.env.SMTP_SECURE === 'true'),
-          auth: process.env.SMTP_USER ? {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-          } : undefined
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD
+          }
         });
 
-        // Verify transporter before sending to get clearer errors
-        try {
-          await transporter.verify();
-        } catch (verifyErr) {
-          console.error('SMTP verify failed:', verifyErr && verifyErr.message ? verifyErr.message : verifyErr);
-          throw verifyErr;
-        }
-
-        const fromAddress = process.env.FROM_EMAIL || `no-reply@${process.env.SMTP_HOST}`;
-
         const mailOptions = {
-          from: fromAddress,
+          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
           to: user.email,
-          subject: 'Password reset request',
-          text: `You requested a password reset. Use this link to reset your password (valid 1 hour): ${resetLink}`,
-          html: `<p>You requested a password reset. Click the link below to reset your password (valid 1 hour):</p><p><a href="${resetLink}">${resetLink}</a></p>`
+          subject: 'Password Reset Request',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; color: white; border-radius: 10px 10px 0 0;">
+                <h1 style="margin: 0;">🔐 Password Reset</h1>
+              </div>
+              <div style="background: #f9f9f9; padding: 30px; text-align: center;">
+                <p style="font-size: 16px; color: #333;">Hi ${user.name},</p>
+                <p style="font-size: 14px; color: #666; margin: 20px 0;">
+                  You requested to reset your password. Click the button below to proceed (valid for 1 hour):
+                </p>
+                <p style="margin: 20px 0;">
+                  <a href="${resetLink}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                    Reset Password →
+                  </a>
+                </p>
+                <p style="font-size: 12px; color: #999; margin-top: 20px;">
+                  Or copy this link: <a href="${resetLink}" style="color: #667eea;">${resetLink}</a>
+                </p>
+                <p style="font-size: 12px; color: #999;">
+                  If you didn't request this, please ignore this email. Your password will remain unchanged.
+                </p>
+              </div>
+              <div style="background: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px;">
+                <p>© 2026 EduLove - University Dating Platform</p>
+              </div>
+            </div>
+          `
         };
 
         await transporter.sendMail(mailOptions);
         emailSent = true;
+        console.info('[Reset] Password reset email sent to:', user.email);
+      } else {
+        console.warn('[Reset] Gmail credentials not configured (EMAIL_USER and EMAIL_PASSWORD)');
+        emailSent = false;
       }
     } catch (err) {
-      console.error('Error sending reset email:', err && err.message ? err.message : err);
+      console.error('[Reset] Error sending password reset email:', err.message);
       emailSent = false;
     }
 

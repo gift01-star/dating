@@ -1,19 +1,10 @@
 import nodemailer from 'nodemailer';
-import sgTransport from 'nodemailer-sendgrid-transport';
 
-// Configure email transporter
+// Configure email transporter - Gmail only with App Password
 let transporter;
 
-if (process.env.SENDGRID_API_KEY) {
-  // Use SendGrid if API key is available
-  transporter = nodemailer.createTransport(sgTransport({
-    auth: {
-      api_key: process.env.SENDGRID_API_KEY
-    }
-  }));
-  console.info('Using SendGrid for emails');
-} else if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-  // Fallback to Gmail SMTP
+if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+  // Use Gmail SMTP with App Password
   transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -21,9 +12,10 @@ if (process.env.SENDGRID_API_KEY) {
       pass: process.env.EMAIL_PASSWORD
     }
   });
-  console.info('Using Gmail SMTP for emails');
+  console.info('Using Gmail SMTP for emails (with App Password)');
 } else {
-  console.warn('No email service configured. Emails will not be sent.');
+  console.warn('No Gmail credentials configured. Emails will not be sent.');
+  console.warn('Configure EMAIL_USER and EMAIL_PASSWORD environment variables.');
   // Create a dummy transporter that doesn't send emails
   transporter = {
     sendMail: async () => {
@@ -35,8 +27,8 @@ if (process.env.SENDGRID_API_KEY) {
 
 export const sendEmail = async (to, subject, html) => {
   try {
-    if (!process.env.EMAIL_USER && !process.env.SENDGRID_API_KEY) {
-      console.warn('[Email] Email service not configured. Skipping email:', { to, subject });
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.warn('[Email] Gmail credentials not configured. Skipping email:', { to, subject });
       return false;
     }
 
