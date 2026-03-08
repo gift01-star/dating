@@ -29,13 +29,6 @@ import notificationsRoutes from './routes/notifications.js';
 // Import database
 import { User } from './database.js';
 
-const cors = require('cors');
-
-app.use(cors({
-  origin: 'https://edu-love.onrender.com',
-  method: ['GET','POST','PUT','DELETE'],
-  credentials: true
-}));
 
 dotenv.config();
 
@@ -63,6 +56,12 @@ if (process.env.REDIS_URL && !require('./utils/cache.js').redis) {
 }
 
 const app = express();
+
+app.use(cors({
+  origin: 'https://edu-love.onrender.com', // your frontend domain
+  methods: ['GET','POST','PUT','DELETE'],
+  credentials: true
+}));
 
 // Create HTTP server and attach Socket.IO
 const server = http.createServer(app);
