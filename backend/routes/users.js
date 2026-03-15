@@ -574,15 +574,28 @@ router.delete('/favorites/:userId', verifyToken, async (req, res) => {
 // Get all favorites
 router.get('/me/favorites', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).populate('favorites', 'nickname name age gender university photos dob');
+    const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Ensure favorites include computed age from DOB when possible
-    const favorites = (user.favorites || []).map(fav => {
-      const favObj = fav.toJSON ? fav.toJSON() : fav;
-      favObj.age = calculateAge(fav.dob) || favObj.age || null;
-      return favObj;
-    });
+    const favoriteIds = user.favorites || [];
+    const favorites = [];
+
+    for (const id of favoriteIds) {
+      const favUser = await User.findById(id);
+      if (favUser) {
+        const favObj = {
+          _id: favUser._id,
+          nickname: favUser.nickname,
+          name: favUser.name,
+          age: calculateAge(favUser.dob) || favUser.age || null,
+          gender: favUser.gender,
+          university: favUser.university,
+          photos: favUser.photos,
+          dob: favUser.dob
+        };
+        favorites.push(favObj);
+      }
+    }
 
     res.json({ favorites });
   } catch (error) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { FaHeart, FaTimes, FaArrowLeft, FaComments } from 'react-icons/fa';
+import { FaHeart, FaTimes, FaArrowLeft, FaComments, FaStar } from 'react-icons/fa';
 import BottomNavBar from '../components/BottomNavBar';
 import getImageUrl from '../utils/imageUrl';
 
@@ -34,6 +34,7 @@ function DiscoverPage({ user }) {
   const [error, setError] = useState('');
   const [imageError, setImageError] = useState(false);
   const [sentLikesMap, setSentLikesMap] = useState({}); // userId -> matchId
+  const [favoritedMap, setFavoritedMap] = useState({}); // userId -> true
   const [toast, setToast] = useState(null);
   const [filters, setFilters] = useState({
     gender: '',
@@ -55,7 +56,10 @@ function DiscoverPage({ user }) {
 
   useEffect(() => {
     // Refresh sent likes whenever profiles change or on mount
-    if (!loading) fetchSentLikes();
+    if (!loading) {
+      fetchSentLikes();
+      fetchFavorites();
+    }
   }, [loading, profiles]);
 
   const showToast = (msg) => {
@@ -129,6 +133,23 @@ function DiscoverPage({ user }) {
     }
   };
 
+  const fetchFavorites = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const resp = await axios.get(`${API_URL}/users/me/favorites`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const favorites = resp.data.favorites || [];
+      const map = {};
+      favorites.forEach(fav => {
+        map[String(fav._id)] = true;
+      });
+      setFavoritedMap(map);
+    } catch (err) {
+      // ignore failures to fetch favorites
+    }
+  };
+
   const handleLike = async () => {
     if (currentIndex >= profiles.length) return;
 
@@ -192,6 +213,38 @@ function DiscoverPage({ user }) {
       setImageError(false);
     } catch (err) {
       if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error passing profile');
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (currentIndex >= profiles.length) return;
+
+    const token = localStorage.getItem('token');
+    const profile = profiles[currentIndex];
+    const isFavorited = favoritedMap[String(profile._id)];
+
+    try {
+      if (isFavorited) {
+        // Remove from favorites
+        await axios.delete(`${API_URL}/users/favorites/${profile._id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setFavoritedMap(prev => {
+          const next = { ...prev };
+          delete next[String(profile._id)];
+          return next;
+        });
+        showToast('Removed from favorites');
+      } else {
+        // Add to favorites
+        await axios.post(`${API_URL}/users/favorites/${profile._id}`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setFavoritedMap(prev => ({ ...prev, [String(profile._id)]: true }));
+        showToast('Added to favorites');
+      }
+    } catch (err) {
+      if (!handleForbiddenRedirect(err)) setError(err.response?.data?.error || 'Error updating favorites');
     }
   };
 
@@ -549,6 +602,14 @@ function DiscoverPage({ user }) {
             title={myProfileCompletion < 50 ? 'Complete profile to like' : (sentLikesMap[String(currentProfile._id)] ? 'Unlike' : 'Like')}
           >
             <FaHeart size={24} />
+          </button>
+
+          <button
+            onClick={handleFavorite}
+            className={`w-16 h-16 rounded-full transition flex items-center justify-center shadow-lg ${favoritedMap[String(currentProfile._id)] ? 'bg-yellow-500 text-white hover:bg-yellow-600' : 'bg-yellow-200 text-yellow-600 hover:bg-yellow-300'}`}
+            title={favoritedMap[String(currentProfile._id)] ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <FaStar size={24} />
           </button>
 
           <button

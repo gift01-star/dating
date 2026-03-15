@@ -147,14 +147,8 @@ function BottomNavBar({ user }) {
       icon: <FaComments size={24} />,
       color: 'text-blue-500',
       badge: counts.messages
-    },
-    {
-      path: '/profile',
-      label: 'Profile',
-      icon: <FaUser size={24} />,
-      color: 'text-purple-500',
-      badge: 0
     }
+    
   ];
 
   // Add push/notifications control as an extra button (doesn't navigate)
