@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaFire, FaHeart, FaComments, FaUser, FaBell } from 'react-icons/fa';
+import { FaFire, FaHeart, FaComments, FaUser, FaBell, FaStar } from 'react-icons/fa';
 import { registerServiceWorker, askPermission, subscribeUserToPush } from '../utils/push';
 import axios from 'axios';
 
@@ -133,6 +133,13 @@ function BottomNavBar({ user }) {
       icon: <FaHeart size={24} />,
       color: 'text-red-500',
       badge: counts.likes
+    },
+    {
+      path: '/favorites',
+      label: 'Favorites',
+      icon: <FaStar size={24} />,
+      color: 'text-yellow-500',
+      badge: 0
     },
     {
       path: '/messages',
